@@ -81,8 +81,8 @@ Exceptions in Prolog code are raised using Python's native exception facilities.
 More information is provided in the module documentation below.
 """
 # HTML Docs produced with https://pdoc3.github.io
-# pdoc --html --config show_source_code=False swiplserver.prologserver --force --output-dir swiplserver/docs
-# pdoc --html --config show_source_code=False swiplserver.prologserver --force --output-dir swiplserver/docs --http localhost:5000
+# pdoc --html --config show_source_code=False swiplserver.prologserver --force --output-dir docs
+# pdoc --html --config show_source_code=False swiplserver.prologserver --force --output-dir docs --http localhost:5000
 
 import json
 import logging
