@@ -78,10 +78,24 @@ Usage:
 
 Exceptions in Prolog code are raised using Python's native exception facilities.
 
-More information is provided in the module documentation below.
+Debugging:
+    When using `swiplserver`, debugging the Prolog code itself can often be done by viewing traces from the Prolog native `writeln/1` or `debug/3` predicates and viewing their output in the debugger output window.  Sometimes an issue occurs deep in an application and it would be easier to set breakpoints and view traces in Prolog itself. Running SWI Prolog manually and launching the server that `swiplserver` uses within it in "Standalone mode" is designed for this scenario.
+
+    `swiplserver` normally launches SWI Prolog and starts the `language_server/1` predicate within it so that it can connect and run queries. This predicate is defined in the `language_server.pl` file included in the `swiplserver` module. To debug your code using Prolog itself, you can do this manually and connect your application to it. A typical flow for standalone mode is:
+
+    1. Launch SWI Prolog and call the `language_server/1` predicate defined in the `language_server.pl` file that is part of the module, specifying a port and password (documentation is [here]( https://blog.inductorsoftware.com/swiplserver/language_server/language_server.html)). Use the `tdebug/0` predicate to set all threads to debugging mode like this: `tdebug, language_server(port(4242), password(debugnow))`.
+    2. Set the selected port and password when you call `PrologServer.__init__()`.
+    3. Launch the application and go through the steps to reproduce the issue.
+
+    (As the language server is a multithreaded application, debugging the running code requires using the multithreaded debugging features of SWI Prolog as described in the section on "Debugging Threads" in the SWI Prolog documentation.)
+
+    At this point, all of the multi-threaded debugging tools in SWI Prolog are available for debugging the problem. If the issue is an unhandled or unexpected exception, the exception debugging features of SWI Prolog can be used to break on the exception and examine the state of the application.  If it is a logic error, breakpoints can be set to halt at the point where the problem appears, etc.
+
+Note that, while using a library to access Prolog will normally end and restart the process between runs of the code, running the server standalone doesn't clear state between launches of the application.  You'll either need to relaunch between runs or build your application so that it does the initialization at startup.
 """
 # HTML Docs produced with https://pdoc3.github.io
-# pdoc --html --config show_source_code=False swiplserver.prologserver --force --output-dir docs
+# pip install pdoc3
+# pdoc --html --force --output-dir docs --config show_source_code=False swiplserver.prologserver
 # pdoc --html --config show_source_code=False swiplserver.prologserver --force --output-dir docs --http localhost:5000
 
 import json

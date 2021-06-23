@@ -137,7 +137,7 @@ Determines whether the process should the should ignore the `int` (i.e. Interrup
 - write_connection_values(?Write_Connection_Values)
 Determines whether the server writes the port and password to STDOUT as it initializes. Used by language libraries to retrieve this information for connecting. `Write_Connection_Values` may be a variable, causing the system to unify it with the default. The default is `false`.
 
-- writeOutputToFile(+File)
+- write_output_to_file(+File)
 Redirects STDOUT and STDERR to the file specified.  Useful for debugging the server when it is being used in embedded mode.
 
 ## Language Server Messages
@@ -321,7 +321,7 @@ language_server(Options) :-
     ),
     bind_socket(Server_Thread_ID, Unix_Domain_Socket_Path_And_File, Port, Socket, Client_Address),
     send_client_startup_data(Write_Connection_Values, user_output, Unix_Domain_Socket_Path_And_File, Client_Address, Password),
-    option(writeOutputToFile(File), Options, _),
+    option(write_output_to_file(File), Options, _),
     (   var(File)
     ->  true
     ;   write_output_to_file(File)

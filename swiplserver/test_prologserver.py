@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+from tempfile import gettempdir
+
 import sys
 import unittest
 import threading
@@ -635,28 +637,46 @@ class TestPrologServer(ParametrizedTestCase):
 
     def test_class_common_errors(self):
         # Using a thread without starting it should start the server
-        with PrologServer() as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
             prolog_thread = PrologThread(server)
             self.assertTrue(prolog_thread.query("true"))
             pid = server.process_id()
 
-        with PrologServer() as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
             prolog_thread = PrologThread(server)
             self.assertIsNone(prolog_thread.query_async("true"))
             pid = server.process_id()
 
         # Start a thread twice is ignored
-        with PrologServer() as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
             with PrologThread(server) as prolog_thread:
                 prolog_thread.start()
                 self.assertTrue(prolog_thread.query("true"))
+
+    def test_debugging_options(self):
+        tempDir = gettempdir()
+        tempFile = os.path.join(tempDir, "swiplserveroutput.txt")
+        try:
+            os.remove(tempFile)
+        except:
+            pass
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, server_traces = True, output_file_name = tempFile) as server:
+            with PrologThread(server) as prolog_thread:
+                prolog_thread.query("true")
+
+        # Just make sure we have some output in the file
+        with open(tempFile) as f:
+            lines = f.readlines()
+            self.assertTrue(len(lines) > 10)
+
+        os.remove(tempFile)
 
 
 def load_tests(loader, standard_tests, pattern):
     suite = unittest.TestSuite()
 
     # Tests a specific test
-    # suite.addTest(TestPrologServer('test_server_options_and_shutdown'))
+    # suite.addTest(TestPrologServer('test_debugging_options'))
 
     # Run checkin tests
     socketPath = os.path.dirname(os.path.realpath(__file__))
