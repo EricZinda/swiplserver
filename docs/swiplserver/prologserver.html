@@ -200,7 +200,7 @@ json_term must be in the Prolog json format. See <code><a title="swiplserver.pro
 <span>(</span><span>exception_json)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class used for all exceptions raised by <code><a title="swiplserver.prologserver" href="#swiplserver.prologserver">swiplserver.prologserver</a></code>. Used directly when an exception is thrown by Prolog code itself, otherwise the subclass exceptions are used.</p></div>
+<div class="desc"><p>Base class used for all exceptions raised by <code><a title="swiplserver.prologserver" href="#swiplserver.prologserver">swiplserver.prologserver</a></code> except for PrologLaunchError. Used directly when an exception is thrown by Prolog code itself, otherwise the subclass exceptions are used.</p></div>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>builtins.Exception</li>
@@ -209,7 +209,6 @@ json_term must be in the Prolog json format. See <code><a title="swiplserver.pro
 <h3>Subclasses</h3>
 <ul class="hlist">
 <li><a title="swiplserver.prologserver.PrologConnectionFailedError" href="#swiplserver.prologserver.PrologConnectionFailedError">PrologConnectionFailedError</a></li>
-<li><a title="swiplserver.prologserver.PrologLaunchError" href="#swiplserver.prologserver.PrologLaunchError">PrologLaunchError</a></li>
 <li><a title="swiplserver.prologserver.PrologNoQueryError" href="#swiplserver.prologserver.PrologNoQueryError">PrologNoQueryError</a></li>
 <li><a title="swiplserver.prologserver.PrologQueryCancelledError" href="#swiplserver.prologserver.PrologQueryCancelledError">PrologQueryCancelledError</a></li>
 <li><a title="swiplserver.prologserver.PrologQueryTimeoutError" href="#swiplserver.prologserver.PrologQueryTimeoutError">PrologQueryTimeoutError</a></li>
@@ -246,25 +245,14 @@ json_term must be in the Prolog json format. See <code><a title="swiplserver.pro
 </dd>
 <dt id="swiplserver.prologserver.PrologLaunchError"><code class="flex name class">
 <span>class <span class="ident">PrologLaunchError</span></span>
-<span>(</span><span>exception_json)</span>
+<span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Raised when the SWI Prolog process was unable to be launched for any reason.</p></div>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="swiplserver.prologserver.PrologError" href="#swiplserver.prologserver.PrologError">PrologError</a></li>
 <li>builtins.Exception</li>
 <li>builtins.BaseException</li>
-</ul>
-<h3>Inherited members</h3>
-<ul class="hlist">
-<li><code><b><a title="swiplserver.prologserver.PrologError" href="#swiplserver.prologserver.PrologError">PrologError</a></b></code>:
-<ul class="hlist">
-<li><code><a title="swiplserver.prologserver.PrologError.is_prolog_exception" href="#swiplserver.prologserver.PrologError.is_prolog_exception">is_prolog_exception</a></code></li>
-<li><code><a title="swiplserver.prologserver.PrologError.json" href="#swiplserver.prologserver.PrologError.json">json</a></code></li>
-<li><code><a title="swiplserver.prologserver.PrologError.prolog" href="#swiplserver.prologserver.PrologError.prolog">prolog</a></code></li>
-</ul>
-</li>
 </ul>
 </dd>
 <dt id="swiplserver.prologserver.PrologNoQueryError"><code class="flex name class">
@@ -412,7 +400,9 @@ When launch_server is False, ignored.</dd>
 <dd>True (default) halt the launched server (i.e. execute prolog <code>halt(abort).</code> and kill the process) if a started <code><a title="swiplserver.prologserver.PrologThread" href="#swiplserver.prologserver.PrologThread">PrologThread</a></code> class or a thread running in the server terminates unexpectedly. In both cases, halting the server is a good course of action since the system is in an unstable state or your application Python process has been killed. Setting this value to False is only recommended for testing or unusual debugging scenarios.
 Ignored if launch_server is False.</dd>
 <dt><strong><code>output_file_name</code></strong></dt>
-<dd>Provide the file name for a file to redirect all Prolog output (STDOUT and STDERR) to. Used for debugging or gathering a log of Prolog output. None outputs all Prolog output to the Python logging infrastructure using the 'swiplserver' log.</dd>
+<dd>Provide the file name for a file to redirect all Prolog output (STDOUT and STDERR) to. Used for debugging or gathering a log of Prolog output. None outputs all Prolog output to the Python logging infrastructure using the 'swiplserver' log.
+If using multiple servers in one SWI Prolog instance, only set this on the first one.
+Each time it is set the output will be deleted and redirected.</dd>
 <dt><strong><code>server_traces</code></strong></dt>
 <dd>Only used in unusual debugging circumstances. True turns on all tracing output from Prolog <code>language_server/1</code> server (i.e. runs <code>debug(prologServer(_)).</code> in Prolog). Since these are Prolog traces, where they go is determined by output_file_name.</dd>
 </dl></div>
@@ -468,7 +458,7 @@ Ignored if launch_server is False.</dd>
 </code></dt>
 <dd>
 <div class="desc"><p>Start a new SWI Prolog process associated with this class using the settings from <code><a title="swiplserver.prologserver.PrologServer" href="#swiplserver.prologserver.PrologServer">PrologServer</a></code>. If launch_server is False, does nothing..</p>
-<p>To create the SWI Prolog process, 'swipl' must be on the system path. Manages the lifetime of the process it creates, ending it on <code>PrologServer.close()</code>.</p>
+<p>To create the SWI Prolog process, 'swipl' must be on the system path. Manages the lifetime of the process it creates, ending it on <code><a title="swiplserver.prologserver.PrologServer.stop" href="#swiplserver.prologserver.PrologServer.stop">PrologServer.stop()</a></code>.</p>
 <h2 id="raises">Raises</h2>
 <dl>
 <dt><code><a title="swiplserver.prologserver.PrologLaunchError" href="#swiplserver.prologserver.PrologLaunchError">PrologLaunchError</a></code></dt>
@@ -527,15 +517,15 @@ prolog_thread.start()
 This means it is a "best effort" cancel since the exception can be caught by your Prolog code. <code>cancel_query_async()</code> is guaranteed to either raise an exception (if there is no query or pending results from the last query), or safely attempt to stop the last executed query.</p>
 <p>To guaranteed that a query is cancelled, call <code><a title="swiplserver.prologserver.PrologThread.stop" href="#swiplserver.prologserver.PrologThread.stop">PrologThread.stop()</a></code> instead.</p>
 <p>It is not necessary to determine the outcome of <code>cancel_query_async()</code> after calling it. Further queries can be immediately run after calling <code>cancel_query_async()</code>. They will be run after the current query stops for whatever reason.</p>
-<p>If you do need to determine the outcome or determine when the query stops, call <code>PrologThread.async_query_result(wait_timeout_seconds = 0)</code>. Using <code>wait_timeout_seconds = 0</code> is recommended since the query might have caught the exception or still be running.
-Calling <code>PrologThread.async_query_result()</code> will return the "natural" result of the goal's execution. The "natural" result depends on the particulars of what the code actually did. The return value could be one of:</p>
+<p>If you do need to determine the outcome or determine when the query stops, call <code>PrologThread.query_async_result(wait_timeout_seconds = 0)</code>. Using <code>wait_timeout_seconds = 0</code> is recommended since the query might have caught the exception or still be running.
+Calling <code><a title="swiplserver.prologserver.PrologThread.query_async_result" href="#swiplserver.prologserver.PrologThread.query_async_result">PrologThread.query_async_result()</a></code> will return the "natural" result of the goal's execution. The "natural" result depends on the particulars of what the code actually did. The return value could be one of:</p>
 <ul>
 <li>Raise <code><a title="swiplserver.prologserver.PrologQueryCancelledError" href="#swiplserver.prologserver.PrologQueryCancelledError">PrologQueryCancelledError</a></code> if the goal was running and did not catch the exception. I.e. the goal was cancelled.</li>
 <li>Raise <code><a title="swiplserver.prologserver.PrologQueryTimeoutError" href="#swiplserver.prologserver.PrologQueryTimeoutError">PrologQueryTimeoutError</a></code> if the query timed out before getting cancelled.</li>
 <li>Raise <code><a title="swiplserver.prologserver.PrologError" href="#swiplserver.prologserver.PrologError">PrologError</a></code> (i.e. an arbitrary exception) if query hits another exception before it has a chance to be cancelled.</li>
 <li>A valid answer if the query finished before being cancelled.</li>
 </ul>
-<p>Note that you will need to continue calling <code>PrologThread.async_query_result()</code> until you receive <code>None</code> or an exception to be sure the query is finished (see documentation for <code>PrologThread.async_query_result()</code>).</p>
+<p>Note that you will need to continue calling <code><a title="swiplserver.prologserver.PrologThread.query_async_result" href="#swiplserver.prologserver.PrologThread.query_async_result">PrologThread.query_async_result()</a></code> until you receive <code>None</code> or an exception to be sure the query is finished (see documentation for <code><a title="swiplserver.prologserver.PrologThread.query_async_result" href="#swiplserver.prologserver.PrologThread.query_async_result">PrologThread.query_async_result()</a></code>).</p>
 <h2 id="raises">Raises</h2>
 <p><code><a title="swiplserver.prologserver.PrologNoQueryError" href="#swiplserver.prologserver.PrologNoQueryError">PrologNoQueryError</a></code> if there was no query running and no results that haven't been retrieved yet from the last query.</p>
 <p><code><a title="swiplserver.prologserver.PrologConnectionFailedError" href="#swiplserver.prologserver.PrologConnectionFailedError">PrologConnectionFailedError</a></code> if the query thread has unexpectedly exited. The server will no longer be listening after this exception.</p>
@@ -547,7 +537,7 @@ Calling <code>PrologThread.async_query_result()</code> will return the "natural"
 </code></dt>
 <dd>
 <div class="desc"><p>Perform an orderly shutdown of the server using Prolog <code>halt(abort)</code> and end the Prolog process.</p>
-<p>This is called automatically by <code>PrologServer.close()</code> and when a <code><a title="swiplserver.prologserver.PrologServer" href="#swiplserver.prologserver.PrologServer">PrologServer</a></code> instance is used in a Python <code>with</code> statement.</p></div>
+<p>This is called automatically by <code><a title="swiplserver.prologserver.PrologServer.stop" href="#swiplserver.prologserver.PrologServer.stop">PrologServer.stop()</a></code> and when a <code><a title="swiplserver.prologserver.PrologServer" href="#swiplserver.prologserver.PrologServer">PrologServer</a></code> instance is used in a Python <code>with</code> statement.</p></div>
 </dd>
 <dt id="swiplserver.prologserver.PrologThread.query"><code class="name flex">
 <span>def <span class="ident">query</span></span>(<span>self, value: str, query_timeout_seconds: float = None)</span>

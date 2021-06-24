@@ -1,5 +1,10 @@
 :- module(language_server, [language_server/1, stop_language_server/1]).
 
+% To generate docs:
+% - Open SWI Prolog
+% - consult("/.../swiplserver/swiplserver/language_server.pl")
+% - doc_save("/.../swiplserver/swiplserver/language_server.pl", [doc_root("/.../swiplserver/swiplserver/docs")]).
+
 /** <module> Prolog Language Server
     Author:        Eric Zinda
     E-mail:        ericz@inductorsoftware.com
@@ -129,7 +134,7 @@ Determines whether the Prolog process should halt using `halt(abort)` if there i
 Determines whether `language_server/1` runs in the background on its own thread or doesn't complete until the server shuts down.  Must be set to `false` when launched by a language library so that the SWI Prolog process doesn't immediately exit.  `Run_Server_On_Thread` may be a variable, causing the system to unify it with the default. The default is `true`.
 
 - server_thread(?Server_Thread)
-Specifies or retrieves the name of the thread the server will run on if `run_server_on_thread(true)`. If `Server_Thread` is a variable, it is unified with a generated name.
+Specifies or retrieves the name of the thread the server will run on if `run_server_on_thread(true)`. Passing in an atom for Server_Thread will only set the server thread name if run_server_on_thread(true).  If `Server_Thread` is a variable, it is unified with a generated name.
 
 - ignore_sig_int(?Ignore_Sig_Int)
 Determines whether the process should the should ignore the `int` (i.e. Interrupt/SIGINT) signal. It is important to ignore this signal (`Ignore_Sig_Int == true`) when running in embedded mode because some languages (such as Python) use that signal during debugging and it will be passed to the client Prolog process and switch it into the debugger. When running in standalone mode, it is OK to leave enabled (`Ignore_Sig_Int == false`).  `Ignore_Sig_Int` may be a variable, causing the system to unify it with the default. The default is `false`.
@@ -138,7 +143,7 @@ Determines whether the process should the should ignore the `int` (i.e. Interrup
 Determines whether the server writes the port and password to STDOUT as it initializes. Used by language libraries to retrieve this information for connecting. `Write_Connection_Values` may be a variable, causing the system to unify it with the default. The default is `false`.
 
 - write_output_to_file(+File)
-Redirects STDOUT and STDERR to the file specified.  Useful for debugging the server when it is being used in embedded mode.
+Redirects STDOUT and STDERR to the file specified.  Useful for debugging the server when it is being used in embedded mode. If using multiple servers in one SWI Prolog instance, only set this on the first one.  Each time it is set the output will be deleted and redirected.
 
 ## Language Server Messages
 The messages the server responds to are described below. A few things are true for all of them:
@@ -316,7 +321,7 @@ language_server(Options) :-
     option_fill_result(Password, password(Password), Options, Generated_Password),
     option(unix_domain_socket(Unix_Domain_Socket_Path_And_File), Options, _),
     (   Ignore_Sig_Int
-    ->  on_signal(int, _, halt)
+    ->  on_signal(int, _, exit_prolog)
     ;   true
     ),
     bind_socket(Server_Thread_ID, Unix_Domain_Socket_Path_And_File, Port, Socket, Client_Address),
@@ -333,6 +338,9 @@ language_server(Options) :-
                  ),
     start_server_thread(Run_Server_On_Thread, Server_Thread_ID, Server_Goal, Unix_Domain_Socket_Path_And_File).
 
+exit_prolog(_) :-
+    debug(prologServer(protocol), "exit_prolog called", []),
+    halt(0).
 
 %! stop_language_server(+Server_Thread_ID:atom) is det.
 %
@@ -350,7 +358,8 @@ stop_language_server(Server_Thread_ID) :-
         (
             debug(prologServer(protocol), "Found server: ~w", [Server_Thread_ID]),
             catch(tcp_close_socket(Socket), Socket_Exception, true),
-            debug(prologServer(protocol), "Stopped server thread: ~w, exception(~w)", [Server_Thread_ID, Socket_Exception])
+            abortSilentExit(Server_Thread_ID, Server_Thread_Exception),
+            debug(prologServer(protocol), "Stopped server thread: ~w, socket_close_exception(~w), stop_thread_exception(~w)", [Server_Thread_ID, Socket_Exception, Server_Thread_Exception])
         )),
     forall(retract(language_server_worker_threads(Server_Thread_ID, Communication_Thread_ID, Goal_Thread_ID)),
         (
@@ -554,8 +563,8 @@ communication_thread(Password, Socket, Encoding, Server_Thread_ID, Goal_Thread_I
     ;   Halt = true
     ),
     (   Halt
-    ->  (   debug(prologServer(protocol), "Ending session and halting Prolog server due to thread ~w: ~w", [Self_ID, Serve_Exception]),
-            halt(abort)
+    ->  (   debug(prologServer(protocol), "Ending session and halting Prolog server due to thread ~w: exception(~w)", [Self_ID, Serve_Exception]),
+            halt(0)
         )
     ;   (   debug(prologServer(protocol), "Ending session ~w", [Self_ID]),
             catch(tcp_close_socket(Socket), error(_, _), true)
@@ -985,39 +994,41 @@ repeat_until_false(Goal) :-
 repeat_until_false(_).
 
 
-% Used to kill a thread in an "expected" way so it doesn't leave around traces for debugging
-% If the thread is alive OR it was aborted (expected cases): detatch it and then attempt to join
+% Used to kill a thread in an "expected" way so it doesn't leave around traces in thread_property/2 afterwards
+%
+% If the thread is alive OR it was already aborted (expected cases) then attempt to join
 %   the thread so that no warnings are sent to the console. Other cases leave the thread for debugging.
 % There are some fringe cases (like calling external code)
 %   where the call might not return for a long time.  Do a timeout for those cases.
-% Catch the timeout exception or cases where the thread is detached or gone.
 abortSilentExit(Thread_ID, Exception) :-
     catch(thread_signal(Thread_ID, abort), error(Exception, _), true),
-    debug(prologServer(protocol), "Attempting to abort thread: ~w. Goal thread exception: ~w", [Thread_ID, Exception]),
+    debug(prologServer(protocol), "Attempting to abort thread: ~w. thread_signal_exception: ~w", [Thread_ID, Exception]),
     (   once((var(Exception) ; catch(thread_property(Thread_ID, status(exception('$aborted'))), error(_, _), true)))
-    ->  catch(call_with_time_limit(4, thread_join(Thread_ID)), error(_, _), true)
+    ->  (   catch(call_with_time_limit(4, thread_join(Thread_ID)), error(JoinException1, JoinException2), true),
+            debug(prologServer(protocol), "thread_join attempted because thread: ~w exit was expected, exception: ~w", [Thread_ID, error(JoinException1, JoinException2)])
+        )
     ;   true
     ).
 
 
-% Don't detach if it exits in an unexpected way so we can debug using thread_property afterwards
+% Detach a thread that exits with true or false so that it doesn't leave around a record in thread_property/2 afterwards
+% Don't detach a thread if it exits because of an exception so we can debug using thread_property/2 afterwards
 %
-% The goal thread is always aborted and joined by the communication thread using abortSilentExit (if the comm thread is there to do the joining)
-% to avoid the user getting warnings about aborted threads on the console when connections are shut down. This means
-% we can't detect unexpected failures from the goal thread unless the comm thread died first.
-% However, the comm thread is not ever joined so that any unexpected errors can be detected by examining thread properties
-% later.
+% However, `abort` is an expected exception but detaching a thread that aborts will leave an unwanted
+% thread_property/2 record *and* print a message to the console. To work around this,
+% the goal thread is always aborted by the communication thread using abortSilentExit.
 detach_if_expected(Thread_ID) :-
     thread_property(Thread_ID, status(Status)),
     debug(prologServer(protocol), "Thread ~w exited with status ~w", [Thread_ID, Status]),
     (   once((Status = true ; Status = false))
-    ->  thread_detach(Thread_ID)
+    ->  (   debug(prologServer(protocol), "Expected thread status, detaching thread ~w", [Thread_ID]),
+            thread_detach(Thread_ID)
+        )
     ;   true
     ).
 
 write_output_to_file(File) :-
     debug(prologServer(protocol), "Writing all STDOUT and STDERR to file:~w", [File]),
-    catch(delete_file(File), error(_, _), true),
     open(File, write, Stream, [buffer(false)]),
     set_prolog_IO(user_input, Stream, Stream).
 

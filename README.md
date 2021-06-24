@@ -20,3 +20,13 @@ with PrologServer() as server:
 To install and learn how to use the swiplserver Python library, see [the docs](https://blog.inductorsoftware.com/swiplserver/swiplserver/prologserver.html).
 
 While `swiplserver` automatically manages dealing with the Language Server in SWI Prolog, documentation for it is provided since it is intended to be used for integrating other programming languages with SWI Prolog as well. The code is available in this repository: `swiplserver/language_server.pl`  Read more in [the Prolog Language Server docs](https://blog.inductorsoftware.com/swiplserver/language_server/language_server.html).
+
+### Supported Configurations
+Should work on:
+- SWI Prolog 8.2.4 or greater (may work on older builds, untested)
+- Any Mac, Linux Variants or Windows that are supported by SWI Prolog
+- Python 3.7 or later (may work on older builds, untested)
+
+Has been tested with:
+- Windows 8.1 Pro 64 bit + SWI Prolog 8.2.4 + Python 3.8.1
+- Mac 

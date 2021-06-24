@@ -1,3 +1,14 @@
+# swiplserver SWI Prolog integration library
+#    Author:        Eric Zinda
+#    E-mail:        ericz@inductorsoftware.com
+#    WWW:           http://www.inductorsoftware.com
+#    Copyright (c)  2021, Eric Zinda
+
+# HTML Docs produced with https://pdoc3.github.io
+# pip install pdoc3
+# pdoc --html --force --output-dir docs --config show_source_code=False swiplserver.prologserver
+# pdoc --html --config show_source_code=False swiplserver.prologserver --force --output-dir docs --http localhost:5000
+
 """
 Allows using SWI Prolog as an embedded part of an application, "like a library". Tested with SWI-Prolog 8.2.4-1 and Python 3.7.4.
 
@@ -93,10 +104,6 @@ Debugging:
 
 Note that, while using a library to access Prolog will normally end and restart the process between runs of the code, running the server standalone doesn't clear state between launches of the application.  You'll either need to relaunch between runs or build your application so that it does the initialization at startup.
 """
-# HTML Docs produced with https://pdoc3.github.io
-# pip install pdoc3
-# pdoc --html --force --output-dir docs --config show_source_code=False swiplserver.prologserver
-# pdoc --html --config show_source_code=False swiplserver.prologserver --force --output-dir docs --http localhost:5000
 
 import json
 import logging
@@ -107,11 +114,13 @@ import unittest
 import uuid
 from os.path import join
 from threading import Thread
+from pathlib import PurePath, PurePosixPath, PureWindowsPath
+from tempfile import gettempdir
 
 
 class PrologError(Exception):
     """
-    Base class used for all exceptions raised by `swiplserver.prologserver`. Used directly when an exception is thrown by Prolog code itself, otherwise the subclass exceptions are used.
+    Base class used for all exceptions raised by `swiplserver.prologserver` except for PrologLaunchError. Used directly when an exception is thrown by Prolog code itself, otherwise the subclass exceptions are used.
     """
     def __init__(self, exception_json):
         assert prolog_name(exception_json) == "exception" and len(prolog_args(exception_json)) == 1
@@ -142,7 +151,7 @@ class PrologError(Exception):
         return prolog_name(self._exception_json) == term_name
 
 
-class PrologLaunchError(PrologError):
+class PrologLaunchError(Exception):
     """
     Raised when the SWI Prolog process was unable to be launched for any reason.
     """
@@ -248,7 +257,7 @@ class PrologServer:
 
             halt_on_connection_failure: True (default) halt the launched server (i.e. execute prolog `halt(abort).` and kill the process) if a started `PrologThread` class or a thread running in the server terminates unexpectedly. In both cases, halting the server is a good course of action since the system is in an unstable state or your application Python process has been killed. Setting this value to False is only recommended for testing or unusual debugging scenarios.  Ignored if launch_server is False.
 
-            output_file_name: Provide the file name for a file to redirect all Prolog output (STDOUT and STDERR) to. Used for debugging or gathering a log of Prolog output. None outputs all Prolog output to the Python logging infrastructure using the 'swiplserver' log.
+            output_file_name: Provide the file name for a file to redirect all Prolog output (STDOUT and STDERR) to. Used for debugging or gathering a log of Prolog output. None outputs all Prolog output to the Python logging infrastructure using the 'swiplserver' log.  If using multiple servers in one SWI Prolog instance, only set this on the first one.  Each time it is set the output will be deleted and redirected.
 
             server_traces: Only used in unusual debugging circumstances. True turns on all tracing output from Prolog `language_server/1` server (i.e. runs `debug(prologServer(_)).` in Prolog). Since these are Prolog traces, where they go is determined by output_file_name.
         """
@@ -312,7 +321,7 @@ class PrologServer:
         """
         Start a new SWI Prolog process associated with this class using the settings from `PrologServer.__init__()`. If launch_server is False, does nothing..
 
-        To create the SWI Prolog process, 'swipl' must be on the system path. Manages the lifetime of the process it creates, ending it on `PrologServer.close()`.
+        To create the SWI Prolog process, 'swipl' must be on the system path. Manages the lifetime of the process it creates, ending it on `PrologServer.stop()`.
 
         Raises:
              PrologLaunchError: The SWI Prolog process was unable to be launched. Often indicates that `swipl` is not in the system path.
@@ -327,18 +336,31 @@ class PrologServer:
             if self._password is not None:
                 options.append("password('{}')".format(str(self._password)))
             if self._output_file is not None:
-                options.append("write_output_to_file('{}')".format(self._output_file))
-                _log.debug("Writing all Prolog output to file: %s", self._output_file)
+                # Attempt to convert the local file system format to Posix. Need to handle
+                # "C:\" on windows with a workaround since PurePath doesn't really handle it right
+                convertedPath = str(PurePosixPath(PurePath(self._output_file)))
+                if convertedPath[0] != "/" and convertedPath[1] == ":" and convertedPath[2] == "\\":
+                    finalPath = "/" + convertedPath[0] + convertedPath[1] + convertedPath[3:]
+                else:
+                    finalPath = convertedPath
+                options.append("write_output_to_file('{}')".format(finalPath))
+                _log.debug("Writing all Prolog output to file: %s", convertedPath)
             if self._port is not None:
                 options.append("port({})".format(str(self._port)))
             if self._unix_domain_socket is not None:
-                options.append("unix_domain_socket('{}')".format(self._unix_domain_socket))
+                if os.name == "nt":
+                    raise PrologLaunchError("Unix Domain Sockets are not supported on windows")
+                else:
+                    options.append("unix_domain_socket('{}')".format(self._unix_domain_socket))
 
             launchArgs = ["swipl", "--quiet", "-s", prologPath, "-g",
                           "language_server([write_connection_values(true), run_server_on_thread(false), ignore_sig_int(true), {}])".format(",".join(options)),
                           "-t", "halt"]
             _log.debug("PrologServer launching swipl: %s", launchArgs)
-            self._process = subprocess.Popen(launchArgs, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            try:
+                self._process = subprocess.Popen(launchArgs, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            except FileNotFoundError:
+                raise PrologLaunchError("The SWI Prolog executable 'swipl' could not be found on the system path, please add it.")
 
             # Add STDERR reader immediately so we can see errors printed out
             self._stderr_reader = _NonBlockingStreamReader(self._process.stderr)
@@ -592,14 +614,14 @@ class PrologThread:
 
         It is not necessary to determine the outcome of `cancel_query_async()` after calling it. Further queries can be immediately run after calling `cancel_query_async()`. They will be run after the current query stops for whatever reason.
 
-        If you do need to determine the outcome or determine when the query stops, call `PrologThread.async_query_result(wait_timeout_seconds = 0)`. Using `wait_timeout_seconds = 0` is recommended since the query might have caught the exception or still be running.  Calling `PrologThread.async_query_result()` will return the "natural" result of the goal's execution. The "natural" result depends on the particulars of what the code actually did. The return value could be one of:
+        If you do need to determine the outcome or determine when the query stops, call `PrologThread.query_async_result(wait_timeout_seconds = 0)`. Using `wait_timeout_seconds = 0` is recommended since the query might have caught the exception or still be running.  Calling `PrologThread.query_async_result()` will return the "natural" result of the goal's execution. The "natural" result depends on the particulars of what the code actually did. The return value could be one of:
 
         - Raise `PrologQueryCancelledError` if the goal was running and did not catch the exception. I.e. the goal was cancelled.
         - Raise `PrologQueryTimeoutError` if the query timed out before getting cancelled.
         - Raise `PrologError` (i.e. an arbitrary exception) if query hits another exception before it has a chance to be cancelled.
         - A valid answer if the query finished before being cancelled.
 
-        Note that you will need to continue calling `PrologThread.async_query_result()` until you receive `None` or an exception to be sure the query is finished (see documentation for `PrologThread.async_query_result()`).
+        Note that you will need to continue calling `PrologThread.query_async_result()` until you receive `None` or an exception to be sure the query is finished (see documentation for `PrologThread.query_async_result()`).
 
         Raises:
             `PrologNoQueryError` if there was no query running and no results that haven't been retrieved yet from the last query.
@@ -658,7 +680,7 @@ class PrologThread:
         """
         Perform an orderly shutdown of the server using Prolog `halt(abort)` and end the Prolog process.
 
-        This is called automatically by `PrologServer.close()` and when a `PrologServer` instance is used in a Python `with` statement.
+        This is called automatically by `PrologServer.stop()` and when a `PrologServer` instance is used in a Python `with` statement.
         """
         self._send("quit.\n")
         # wait for the answer to make sure it was processed
