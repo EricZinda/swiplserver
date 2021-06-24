@@ -114,6 +114,13 @@ You'll either need to relaunch between runs or build your application so that it
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="swiplserver.prologserver.create_posix_path"><code class="name flex">
+<span>def <span class="ident">create_posix_path</span></span>(<span>os_path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Convert a file path in whatever the current OS path format is to be a posix path so Prolog can understand it.</p>
+<p>This is useful for Prolog predicates like <code>consult</code> which need a path to be passed in.</p></div>
+</dd>
 <dt id="swiplserver.prologserver.is_prolog_atom"><code class="name flex">
 <span>def <span class="ident">is_prolog_atom</span></span>(<span>json_term)</span>
 </code></dt>
@@ -673,6 +680,7 @@ Indicates no more answers.</p>
 <ul id="index">
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="swiplserver.prologserver.create_posix_path" href="#swiplserver.prologserver.create_posix_path">create_posix_path</a></code></li>
 <li><code><a title="swiplserver.prologserver.is_prolog_atom" href="#swiplserver.prologserver.is_prolog_atom">is_prolog_atom</a></code></li>
 <li><code><a title="swiplserver.prologserver.is_prolog_functor" href="#swiplserver.prologserver.is_prolog_functor">is_prolog_functor</a></code></li>
 <li><code><a title="swiplserver.prologserver.is_prolog_list" href="#swiplserver.prologserver.is_prolog_list">is_prolog_list</a></code></li>

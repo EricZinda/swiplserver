@@ -336,15 +336,9 @@ class PrologServer:
             if self._password is not None:
                 options.append("password('{}')".format(str(self._password)))
             if self._output_file is not None:
-                # Attempt to convert the local file system format to Posix. Need to handle
-                # "C:\" on windows with a workaround since PurePath doesn't really handle it right
-                convertedPath = str(PurePosixPath(PurePath(self._output_file)))
-                if convertedPath[0] != "/" and convertedPath[1] == ":" and convertedPath[2] == "\\":
-                    finalPath = "/" + convertedPath[0] + convertedPath[1] + convertedPath[3:]
-                else:
-                    finalPath = convertedPath
+                finalPath = create_posix_path(self._output_file)
                 options.append("write_output_to_file('{}')".format(finalPath))
-                _log.debug("Writing all Prolog output to file: %s", convertedPath)
+                _log.debug("Writing all Prolog output to file: %s", finalPath)
             if self._port is not None:
                 options.append("port({})".format(str(self._port)))
             if self._unix_domain_socket is not None:
@@ -798,6 +792,21 @@ class PrologThread:
         _log.debug("PrologServer receive: %s", finalValue)
         return finalValue
 
+
+def create_posix_path(os_path):
+    """
+    Convert a file path in whatever the current OS path format is to be a posix path so Prolog can understand it.
+
+    This is useful for Prolog predicates like `consult` which need a path to be passed in.
+    """
+    # Attempt to convert the local file system format to Posix. Need to handle
+    # "C:\" on windows with a workaround since PurePath doesn't really handle it right
+    convertedPath = str(PurePosixPath(PurePath(os_path)))
+    if convertedPath[0] != "/" and convertedPath[1] == ":" and convertedPath[2] == "\\":
+        finalPath = "/" + convertedPath[0] + convertedPath[1] + convertedPath[3:]
+    else:
+        finalPath = convertedPath
+    return finalPath
 
 def is_prolog_functor(json_term):
     """

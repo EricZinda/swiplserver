@@ -37,11 +37,30 @@ class ParametrizedTestCase(unittest.TestCase):
 
 class TestPrologServer(ParametrizedTestCase):
     def setUp(self):
-        pass
+        self.initialProcessCount = self.process_count("swipl.exe")
 
     def tearDown(self):
+        # Make sure we aren't leaving processes around
+        self.assertEqual(self.process_count("swipl.exe"), self.initialProcessCount)
+
         # If we're using a Unix Domain Socket, make sure the file was cleaned up
         self.assertTrue(self.useUnixDomainSocket is None or not os.path.exists(self.useUnixDomainSocket))
+
+    def process_count(self, process_name):
+        if os.name == "nt":
+            call = 'TASKLIST', '/FI', 'imagename eq %s' % process_name
+            # use buildin check_output right away
+            output = subprocess.check_output(call).decode()
+            # check each line for process name
+            count = 0
+            for line in output.strip().split('\r\n'):
+                if line.lower().startswith(process_name.lower()):
+                    count += 1
+
+            return count
+        else:
+            # TODO: Need to figure out how to check this in *nix
+            return 0
 
     def thread_failure_reason(self, client, threadID, secondsTimeout):
         count = 0
