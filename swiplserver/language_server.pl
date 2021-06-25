@@ -165,7 +165,7 @@ To send a message to the server, send a message using the message format above t
 ~~~
 18.\nrun(atom(a), -1).\n<end of stream>
 ~~~
-You will receive the response below on the receive stream of the same connection you sent on. The `run/2` and `run_async/3` messages are the only ones that send "heartbeat" characters (".") at the beginning of the response message, approximately 1 every 2 seconds. So, if the query takes 6 seconds for some reason, there will be three "." characters first:
+You will receive the response below on the receive stream of the same connection you sent on. If a message takes longer than 2 seconds, there will be "heartbeat" characters (".") at the beginning of the response message, approximately 1 every 2 seconds. So, if the query takes 6 seconds for some reason, there will be three "." characters first:
 ~~~
 ...12\ntrue([[]]).\n
 ~~~
@@ -198,7 +198,7 @@ Starts a Prolog query on the connection's designated query thread. Answers to th
 
 If the socket closes before responding, the connection is terminated, the query is aborted and the server optionally shuts down using `halt(abort)` (depending on Options).
 
-If it needs to wait for the previous query to complete, it will send heartbeat messages (see `run/2`) while it waits.  After it responds, however, it does not send more heartbeats. This is so that it can begin accepting new commands immediately after responding so the client.
+If it needs to wait for the previous query to complete, it will send heartbeat messages (see the `Language Server Message Format` section) while it waits.  After it responds, however, it does not send more heartbeats. This is so that it can begin accepting new commands immediately after responding so the client.
 
 `Find_All == true` means generate one response in `async_result/1` with all of the answers to the query (as in `run/2` above). `Find_All == false` generates a single response in `async_result/1` per answer.
 
@@ -723,7 +723,7 @@ state_process_command(Stream, Goal_Thread_ID, Query_Timeout, run_async(Goal, Tim
     repeat_until_false((
             query_in_progress(Goal_Thread_ID),
             debug(prologServer(protocol), "Draining unretrieved result for ~w", [Goal_Thread_ID]),
-            get_next_result(Goal_Thread_ID, [], Unused_Answer),
+            heartbeat_until_result(Goal_Thread_ID, Stream, Unused_Answer),
             debug(prologServer(protocol), "Drained result for ~w", [Goal_Thread_ID]),
             debug(prologServer(query), "    Discarded answer: ~w", [Unused_Answer])
             )),

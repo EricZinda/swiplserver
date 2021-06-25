@@ -204,7 +204,7 @@ To send a message to the server, send a message using the message format above t
 18.\nrun(atom(a), -1).\n&lt;end of stream&gt;</pre>
 
 <p>
-You will receive the response below on the receive stream of the same connection you sent on. The <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=run/2">run/2</a> and <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=run_async/3">run_async/3</a> messages are the only ones that send "heartbeat" characters (".") at the beginning of the response message, approximately 1 every 2 seconds. So, if the query takes 6 seconds for some reason, there will be three "." characters first:</p>
+You will receive the response below on the receive stream of the same connection you sent on. If a message takes longer than 2 seconds, there will be "heartbeat" characters (".") at the beginning of the response message, approximately 1 every 2 seconds. So, if the query takes 6 seconds for some reason, there will be three "." characters first:</p>
 
 <pre class="code" ext="">
 ...12\ntrue([[]]).\n</pre>
@@ -248,7 +248,7 @@ Starts a Prolog query on the connection's designated query thread. Answers to th
 If the socket closes before responding, the connection is terminated, the query is aborted and the server optionally shuts down using <code>halt(abort)</code> (depending on <var>Options</var>).</p>
 
 <p>
-If it needs to wait for the previous query to complete, it will send heartbeat messages (see <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=run/2">run/2</a>) while it waits. After it responds, however, it does not send more heartbeats. This is so that it can begin accepting new commands immediately after responding so the client.</p>
+If it needs to wait for the previous query to complete, it will send heartbeat messages (see the `Language Server Message Format` section) while it waits. After it responds, however, it does not send more heartbeats. This is so that it can begin accepting new commands immediately after responding so the client.</p>
 
 <p>
 <code>Find_All == true</code> means generate one response in <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> with all of the answers to the query (as in <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=run/2">run/2</a> above). <code>Find_All == false</code> generates a single response in <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> per answer.</p>

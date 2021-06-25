@@ -233,6 +233,7 @@ class TestPrologServer(ParametrizedTestCase):
 
                 # query that is long enough to send heartbeats but eventually succeeds
                 self.assertTrue(client.query("sleep(5)"))
+                self.assertGreater(client._heartbeat_count, 0)
 
     def test_async_query(self):
         with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
@@ -376,14 +377,17 @@ class TestPrologServer(ParametrizedTestCase):
                     caughtException = True
                 assert caughtException
 
+
                 self.async_query_timeout(client, 3, 1)
 
     def test_protocol_edge_cases(self):
         with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
             with server.create_thread() as client:
-                # Call two async queries in a row. Should work and return the second results
+                # Call two async queries in a row. Should work and return the second results at least 1 heartbeat should be sent
+                # in the response
                 client.query_async("(member(X, [Y=a, Y=b, Y=c]), X), sleep(3)", find_all=False)
                 client.query_async("(member(X, [Y=d, Y=e, Y=f]), X)", find_all=False)
+                self.assertGreater(client._heartbeat_count, 0)
                 results = []
                 while True:
                     result = client.query_async_result()
@@ -754,12 +758,17 @@ def run_unix_domain_sockets_performance_tests(suite):
 def load_tests(loader, standard_tests, pattern):
     suite = unittest.TestSuite()
 
+    # Run the perf tests
     # Perf tests should only be run one per run as the numbers vary greatly otherwise
     # run_tcpip_performance_tests(suite)
     # run_unix_domain_sockets_performance_tests(suite)
 
     # Tests a specific test
-    # suite.addTest(TestPrologServer('test_sync_query'))
+    # suite.addTest(TestPrologServer('test_protocol_edge_cases'))
+
+    # Tests a specific test 100 times
+    # for index in range(0, 100):
+    #     suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, test_item_name="test_server_options_and_shutdown", launchServer=False, useUnixDomainSocket=None, serverPort=4242, password="debugnow"))
 
     # Run checkin tests
     suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, launchServer=True, useUnixDomainSocket=None, serverPort=None, password=None))

@@ -463,6 +463,7 @@ class PrologThread:
         self._socket = None
         self.communication_thread_id = None
         self.goal_thread_id = None
+        self._heartbeat_count = 0
 
     def __enter__(self):
         self.start()
@@ -756,6 +757,7 @@ class PrologThread:
         amount_expected = None
         bytesReceived = bytearray()
         sizeBytes = bytearray()
+        self._heartbeat_count = 0
 
         data = None
         while amount_expected is None or amount_received < amount_expected:
@@ -768,6 +770,9 @@ class PrologThread:
                     # String length ends with '.\n' characters
                     if item == 46:
                         # ignore "."
+                        if len(sizeBytes) == 0:
+                            # Count heartbeats for testing only
+                            self._heartbeat_count += 1
                         continue
                     if item == 10:
                         # convert all the characters we've received so far to a number

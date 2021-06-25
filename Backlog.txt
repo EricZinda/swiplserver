@@ -1,9 +1,7 @@
 
 
-- Bug: should async_result be sending a heartbeat too?
-    - In any case the heartbeat docs don't match the code right noew
-
+- Should run_async send heartbeats after it is done draining, but while it is waiting for the result?
+- Need tests to test draining of previous query, including long enough to send heartbeats
 - Signal Handling Update?
 - Organize as a package for incorporation into SWI Prolog
-- Run stress test to find the spurious crash in thread_join that happens on the Prolog dev build in the tests
 - Get feedback from SWI Prolog community
