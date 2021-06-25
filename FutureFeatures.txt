@@ -1,0 +1,6 @@
+- how to distinguish strings and atoms from the JSON?
+    - Support options for JSON serialization for encoding false?
+    - use json{type:string, value:Term} or "\"\""?
+    - true, false
+    - dicts
+    - use json_write_dict instead?

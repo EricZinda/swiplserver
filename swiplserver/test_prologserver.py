@@ -1,11 +1,13 @@
+import gc
 import json
 import logging
 import os
+from datetime import time
 from tempfile import gettempdir
 import sys
 import unittest
 import threading
-from time import sleep
+from time import sleep, perf_counter
 from prologserver import *
 from pathlib import PurePath, PurePosixPath, PureWindowsPath
 
@@ -23,15 +25,21 @@ class ParametrizedTestCase(unittest.TestCase):
         self.password = password
 
     @staticmethod
-    def parametrize(testcase_klass, launchServer = True, useUnixDomainSocket = None, serverPort= None, password= None):
+    def parametrize(testcase_klass, test_item_name = None, launchServer = True, useUnixDomainSocket = None, serverPort= None, password= None):
         """ Create a suite containing all tests taken from the given
             subclass, passing them the parameter 'param'.
         """
         testloader = unittest.TestLoader()
         testnames = testloader.getTestCaseNames(testcase_klass)
         suite = unittest.TestSuite()
-        for name in testnames:
-            suite.addTest(testcase_klass(name, launchServer = launchServer, useUnixDomainSocket = useUnixDomainSocket, serverPort= serverPort, password= password))
+        if test_item_name is None:
+            for name in testnames:
+                suite.addTest(testcase_klass(name, launchServer = launchServer, useUnixDomainSocket = useUnixDomainSocket,
+                                             serverPort= serverPort, password= password))
+        else:
+            suite.addTest(testcase_klass(test_item_name, launchServer=launchServer, useUnixDomainSocket=useUnixDomainSocket,
+                                         serverPort=serverPort, password=password))
+
         return suite
 
 
@@ -710,12 +718,45 @@ class TestPrologServer(ParametrizedTestCase):
 
         os.remove(tempFile)
 
+    def skip_test_protocol_overhead(self):
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+            with PrologThread(server) as prolog_thread:
+                iterations = 10000
+                bestResult = None
+                gc.disable() # so it doesn't collect during the run
+                # Numbers vary widely due to many things including GC so run many times and report the best number
+                for runIndex in range(0, 10):
+                    startEvalTime = perf_counter()
+                    for count in range(0, iterations):
+                        prolog_thread.query("true")
+                    thisResult = perf_counter() - startEvalTime
+                    print("Measured value {}".format(thisResult))
+                    if bestResult is None or thisResult < bestResult:
+                        bestResult = thisResult
+
+                gc.enable()
+                print("Best Time to run {} iterations of the Prolog query `true`: {}".format(iterations, bestResult))
+
+
+def run_tcpip_performance_tests(suite):
+    suite.addTest(TestPrologServer('skip_test_protocol_overhead'))
+
+
+def run_unix_domain_sockets_performance_tests(suite):
+    socketPath = os.path.dirname(os.path.realpath(__file__))
+    suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, test_item_name="skip_test_protocol_overhead", launchServer=True,
+                                                   useUnixDomainSocket=PrologServer.unix_domain_socket_file(socketPath),
+                                                   serverPort=None, password=None))
 
 def load_tests(loader, standard_tests, pattern):
     suite = unittest.TestSuite()
 
+    # Perf tests should only be run one per run as the numbers vary greatly otherwise
+    # run_tcpip_performance_tests(suite)
+    # run_unix_domain_sockets_performance_tests(suite)
+
     # Tests a specific test
-    # suite.addTest(TestPrologServer('test_class_common_errors'))
+    # suite.addTest(TestPrologServer('test_protocol_overhead'))
 
     # Run checkin tests
     suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, launchServer=True, useUnixDomainSocket=None, serverPort=None, password=None))

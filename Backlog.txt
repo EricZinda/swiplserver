@@ -1,0 +1,7 @@
+
+- Run protocol performance test
+
+- Signal Handling Update?
+- Organize as a package for incorporation int SWI Prolog
+- Run stress test to find the spurious crash in thread_join that happens on the Prolog dev build in the tests
+- Get feedback from SWI Prolog community

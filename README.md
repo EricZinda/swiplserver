@@ -30,3 +30,8 @@ Should work on:
 Has been tested with:
 - Windows 8.1 Pro 64 bit + SWI Prolog 8.2.4 + Python 3.8.1
 - MacOS Catalina + SWI Prolog 8.3.24 + Python 3.7
+
+### Performance
+If you're interested in rough performance overhead of the approach this library takes.  On a late 2013 macbook pro the per call overhead of the library for running a Prolog query is about:
+- 170 uSec per call using TCP/IP localhost
+- 145 uSec per call using Unix Domain Sockets
