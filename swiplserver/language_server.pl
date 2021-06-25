@@ -814,7 +814,8 @@ heartbeat_until_result(Goal_Thread_ID, Stream, Answers) :-
     (   get_next_result(Goal_Thread_ID, [timeout(2)], Answers)
     ->  debug(prologServer(query), "Received answer from goal thread: ~w", [Answers])
     ;   (   debug(prologServer(protocol), "heartbeat...", []),
-            write_heartbeat(Stream)
+            write_heartbeat(Stream),
+            heartbeat_until_result(Goal_Thread_ID, Stream, Answers)
         )
     ).
 

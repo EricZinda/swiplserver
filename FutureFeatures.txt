@@ -4,3 +4,7 @@
     - true, false
     - dicts
     - use json_write_dict instead?
+- Protocol speed improvements
+    - Maybe do it the X11 way, where a large part of the protocol consists of operations that are supposed to succeed and (thus) no acknowledge is sent. If one of them fails anyway it is
+    normally considered as fatal to the connection.
+    - The other trick they use for localhost communication is to use a shared memory segment rather than sockets. ROS does that as well when possible. In my measurements that results in a 25uSec round trip time.

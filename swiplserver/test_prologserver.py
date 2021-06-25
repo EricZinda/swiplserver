@@ -231,6 +231,9 @@ class TestPrologServer(ParametrizedTestCase):
                     caughtException = True
                 assert caughtException
 
+                # query that is long enough to send heartbeats but eventually succeeds
+                self.assertTrue(client.query("sleep(5)"))
+
     def test_async_query(self):
         with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
             with server.create_thread() as client:
@@ -756,7 +759,7 @@ def load_tests(loader, standard_tests, pattern):
     # run_unix_domain_sockets_performance_tests(suite)
 
     # Tests a specific test
-    # suite.addTest(TestPrologServer('test_protocol_overhead'))
+    # suite.addTest(TestPrologServer('test_sync_query'))
 
     # Run checkin tests
     suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, launchServer=True, useUnixDomainSocket=None, serverPort=None, password=None))

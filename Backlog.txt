@@ -1,7 +1,9 @@
 
-- Run protocol performance test
+
+- Bug: should async_result be sending a heartbeat too?
+    - In any case the heartbeat docs don't match the code right noew
 
 - Signal Handling Update?
-- Organize as a package for incorporation int SWI Prolog
+- Organize as a package for incorporation into SWI Prolog
 - Run stress test to find the spurious crash in thread_join that happens on the Prolog dev build in the tests
 - Get feedback from SWI Prolog community
