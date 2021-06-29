@@ -560,11 +560,11 @@ class TestPrologServer(ParametrizedTestCase):
                 sleep(2)
                 initialThreads = self.thread_list(monitorThread)
 
-                # When starting a server, all variables should be filled in with defaults and only the server thread should be created
-                # Launch the new server with all options specified with variables to make sure they get filled in
-                result = monitorThread.query("language_server([pending_connections(ConnectionCount), query_timeout(QueryTimeout), port(Port), run_server_on_thread(RunServerOnThread), server_thread(ServerThreadID), write_connection_values(WriteConnectionValues), password(Password)])")
+                # When starting a server, some variables can be filled in with defaults. Also: only the server thread should be created
+                # Launch the new server with appropriate options specified with variables to make sure they get filled in
+                result = monitorThread.query("language_server([port(Port), server_thread(ServerThreadID), password(Password)])")
                 optionsDict = result[0]
-                assert optionsDict["ConnectionCount"] == 5 and optionsDict["QueryTimeout"] == -1 and "Port" in optionsDict and optionsDict["RunServerOnThread"] == "true" and "ServerThreadID" in optionsDict and optionsDict["WriteConnectionValues"] == "false" and "Password" in optionsDict
+                assert "Port" in optionsDict and "ServerThreadID" in optionsDict and "Password" in optionsDict
 
                 # Get the new threadlist
                 result = monitorThread.query("thread_property(ThreadID, status(Status))")
@@ -743,11 +743,18 @@ class TestPrologServer(ParametrizedTestCase):
 
         os.remove(tempFile)
 
-    def test_connection_failure(self):
+    def test_write_output_to_file_in_embedded_mode(self):
+        # Ensure that using embedded mode still sends password and port to STDOUT before redirecting output or
+        # embedded mode will fail
         tempDir = gettempdir()
         tempFile = os.path.join(tempDir, "swiplserveroutput.txt")
 
         with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, output_file_name=tempFile, server_traces=True) as server:
+            with PrologThread(server) as prolog_thread:
+                self.assertTrue(prolog_thread.query("true"))
+
+    def test_connection_failure(self):
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
             with PrologThread(server) as prolog_thread:
                 # Closing the socket without sending "close.\n" should shutdown and exit the process
                 prolog_thread._socket.close()

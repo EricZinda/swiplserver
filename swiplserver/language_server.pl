@@ -115,30 +115,29 @@ If set, Unix Domain Sockets will be used as the way to communicate with the serv
     - For security reasons, the filename should not be predictable and the directory it is contained in should have permissions set so that files created are only accessible to the current user.
     - The path must be below 92 *bytes* long (including null terminator) to be portable according to the Linux documentation
 
-
 - port(?Port)
 The TCP/IP socket port to bind to on localhost. This option is ignored if the `unix_domain_socket/1` option is set. Port is either a legal TCP/IP port number (integer) or a term `Port`. The port may be a variable, causing the system to select a free port and unify the variable with the selected port as in `tcp_bind/2`. If the option `write_connection_values(true)` is set, the selected port is output to STDOUT followed by `\n` on startup to allow the client language library to retrieve it.
 
 - password(?Password)
 The password required for a connection. If not specified (recommended), the server will generate one as a Prolog string type since Prolog atoms are globally visible. Be sure to not convert to an atom for this reason.  If the option `write_connection_values(true)` is set, the password is output to STDOUT followed by `\n` on startup to allow the client language library to retrieve it. This is the recommended way to integrate the server with a language as it avoids including the password as source code (which could then be discovered). This option is only included so that a known password can be supplied for when the server is running in "Standalone Mode".  `Password` may be a variable, causing the system to unify it with the created password.
 
-- pending_connections(?Count)
-Sets the number of pending connections allowed for the server as in `tcp_listen/2`. `Count` may be a variable, causing the system to unify it with the default. The default is `5`.
+- pending_connections(+Count)
+Sets the number of pending connections allowed for the server as in `tcp_listen/2`. If not provided, the default is `5`.
 
-- query_timeout(?Seconds)
-Sets the length of time a query is allowed to run before it is cancelled. `Seconds` may be a variable, causing the system to unify it with the default. The default is no timeout (`-1`).
+- query_timeout(+Seconds)
+Sets the length of time in seconds a query is allowed to run before it is cancelled. If not set, the default is no timeout (`-1`).
 
-- run_server_on_thread(?Run_Server_On_Thread)
-Determines whether `language_server/1` runs in the background on its own thread or doesn't complete until the server shuts down.  Must be set to `false` when launched by a language library so that the SWI Prolog process doesn't immediately exit.  `Run_Server_On_Thread` may be a variable, causing the system to unify it with the default. The default is `true`.
+- run_server_on_thread(+Run_Server_On_Thread)
+Determines whether `language_server/1` runs in the background on its own thread or blocks until the server shuts down.  Must be missing or set to `true` when running in embedded mode so that the SWI Prolog process can exit properly. If not set, the default is `true`.
 
 - server_thread(?Server_Thread)
 Specifies or retrieves the name of the thread the server will run on if `run_server_on_thread(true)`. Passing in an atom for Server_Thread will only set the server thread name if run_server_on_thread(true).  If `Server_Thread` is a variable, it is unified with a generated name.
 
-- write_connection_values(?Write_Connection_Values)
-Determines whether the server writes the port and password to STDOUT as it initializes. Used by language libraries to retrieve this information for connecting. `Write_Connection_Values` may be a variable, causing the system to unify it with the default. The default is `false`.
+- write_connection_values(+Write_Connection_Values)
+Determines whether the server writes the port and password to STDOUT as it initializes. Used by language libraries to retrieve this information for connecting. If not set, the default is `false`.
 
 - write_output_to_file(+File)
-Redirects STDOUT and STDERR to the file specified.  Useful for debugging the server when it is being used in embedded mode. If using multiple servers in one SWI Prolog instance, only set this on the first one.  Each time it is set the output will be deleted and redirected.
+Redirects STDOUT and STDERR to the file specified.  Useful for debugging the server when it is being used in embedded mode. If using multiple servers in one SWI Prolog instance, only set this on the first one.  Each time it is set the output will be redirected.
 
 ## Language Server Messages
 The messages the server responds to are described below. A few things are true for all of them:
@@ -301,19 +300,27 @@ Response:
 % globally visible
 % Add ".\n" to the password since it will be added by the message when received
 language_server(Options) :-
-    option_fill_result(Connection_Count, pending_connections(Connection_Count), Options, 5),
     Encoding = utf8,
-    option_fill_result(Query_Timeout, query_timeout(Query_Timeout), Options, -1),
-    option_fill_result(Port, port(Port), Options, _),
-    option_fill_result(Run_Server_On_Thread, run_server_on_thread(Run_Server_On_Thread), Options, true),
+    option(pending_connections(Connection_Count), Options, 5),
+    option(query_timeout(Query_Timeout), Options, -1),
+    option(port(Port), Options, _),
+    option(run_server_on_thread(Run_Server_On_Thread), Options, true),
     option(exit_main_on_failure(Exit_Main_On_Failure), Options, false),
-    gensym(language_server, Default_Server_Thread_ID),
-    option_fill_result(Server_Thread_ID, server_thread(Server_Thread_ID), Options, Default_Server_Thread_ID),
-    option_fill_result(Write_Connection_Values, write_connection_values(Write_Connection_Values), Options, false),
-    uuid(UUID, [format(integer)]),
-    format(string(Generated_Password), '~d', [UUID]),
-    option_fill_result(Password, password(Password), Options, Generated_Password),
+    option(write_connection_values(Write_Connection_Values), Options, false),
     option(unix_domain_socket(Unix_Domain_Socket_Path_And_File), Options, _),
+    option(server_thread(Server_Thread_ID), Options, _),
+    (   var(Server_Thread_ID)
+    ->  gensym(language_server, Server_Thread_ID)
+    ;   true
+    ),
+    option(password(Password), Options, _),
+    (   var(Password)
+    ->  (   uuid(UUID, [format(integer)]),
+            format(string(Password), '~d', [UUID])
+        )
+    ;   true
+    ),
+    string_concat(Password, '.\n', Final_Password),
     bind_socket(Server_Thread_ID, Unix_Domain_Socket_Path_And_File, Port, Socket, Client_Address),
     send_client_startup_data(Write_Connection_Values, user_output, Unix_Domain_Socket_Path_And_File, Client_Address, Password),
     option(write_output_to_file(File), Options, _),
@@ -321,7 +328,6 @@ language_server(Options) :-
     ->  true
     ;   write_output_to_file(File)
     ),
-    string_concat(Password, '.\n', Final_Password),
     Server_Goal = (
                     catch(server_thread(Server_Thread_ID, Socket, Client_Address, Final_Password, Connection_Count, Encoding, Query_Timeout, Exit_Main_On_Failure), error(E1, E2), true),
                     debug(prologServer(protocol), "Stopped server on thread: ~w due to exception: ~w", [Server_Thread_ID, error(E1, E2)])
@@ -333,6 +339,8 @@ language_server(Options) :-
 
 % Turn off int signal when running in embedded mode so the client language
 % debugger signal doesn't put Prolog into debug mode
+% run_server_on_thread must be missing or true (the default) so we can exit
+% properly
 main(Argv) :-
     argv_options(Argv, _Args, Options),
     findall(Option_Out, (   member(Option, Options),
@@ -341,6 +349,11 @@ main(Argv) :-
                             compound_name_arguments(Option_Out, Name, [Argument_Out])
                         ), Unwrapped_Options),
     append(Unwrapped_Options, [exit_main_on_failure(true)], FinalOptions),
+    option(run_server_on_thread(Run_Server_On_Thread), FinalOptions, true),
+    (   Run_Server_On_Thread
+    ->  true
+    ;   throw(domain_error(cannot_be_set_in_embedded_mode, run_server_on_thread))
+    ),
     language_server(FinalOptions),
     on_signal(int, _, quit),
     thread_get_message(quit_language_server).

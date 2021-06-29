@@ -1,4 +1,6 @@
+
+
 - Get Domain sockets using the right interface
-- get rid of default options
+- figure out to do about the Prolog bug
 - Organize as a package for incorporation into SWI Prolog
 - Get feedback from SWI Prolog community
