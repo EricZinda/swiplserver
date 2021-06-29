@@ -3,7 +3,7 @@
 % To generate docs:
 % - Open SWI Prolog
 % - consult("/.../swiplserver/swiplserver/language_server.pl")
-% - doc_save("/.../swiplserver/swiplserver/language_server.pl", [doc_root("/.../swiplserver/swiplserver/docs")]).
+% - doc_save("/.../swiplserver/swiplserver/language_server.pl", [doc_root("/.../swiplserver/docs/language_server")]).
 
 /** <module> Prolog Language Server
     Author:        Eric Zinda
