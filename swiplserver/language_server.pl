@@ -389,14 +389,6 @@ stop_language_server(Server_Thread_ID) :-
         )).
 
 
-option_fill_result(Final_Variable, Option_Requested, Options, Default_For_Variable) :-
-    option(Option_Requested, Options, Default_For_Variable),
-    (   var(Final_Variable)
-    ->  Final_Variable = Default_For_Variable
-    ;   true
-    ).
-
-
 start_server_thread(Run_Server_On_Thread, Server_Thread_ID, Server_Goal, Unix_Domain_Socket_Path_And_File) :-
     (   Run_Server_On_Thread
     ->  (   thread_create(Server_Goal, _, [ alias(Server_Thread_ID),
