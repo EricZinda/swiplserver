@@ -56,7 +56,8 @@ The basic rule to remember is: any predicates designed to interact with or chang
 ## Embedding the Language Server Into a New Programming Language
 The most common way to use the language server is to find a library that wraps and exposes it as a native part of another programming language such as Python. This section describes how to build one if there isn't yet a library for your language.  To do this, you'll need to familiarize yourself with the server protocol as described in the `language_server/1` documentation. However, to give an idea of the scope of work required, below is a typical interaction done (invisibly to the user) in the implementation of any programming language library:
 
-     1. Launch the SWI Prolog process using a command like `swipl --quiet -g language_server([write_connection_values(true), halt_on_connection_failure(true), ignore_sig_int(true), run_server_on_thread(false)]) -t halt` To work, the `swipl` Prolog executable will need to be on the path or specified in the command. This launches the server and ensures that the process exits when the connections are closed (or fail).  `run_server_on_thread(false)` is required otherwise the server will run on a thread and the process will exit immediately. See documentation for all of the options in the `language_server/1` documentation.
+
+     1. Launch the SWI Prolog process using (along with any other options the user requests): `swipl /<path>/language_server.pl --write_connection_values=true`.  To work, the `swipl` Prolog executable will need to be on the path or specified in the command. This launches the server and writes the chosen port and password to STDOUT.  This way of launching invokes a (non-exported) predicate called `main/1` that turns off the `int` (i.e. Interrupt/SIGINT) signal to Prolog. This is because some languages (such as Python) use that signal during debugging and it would be otherwise passed to the client Prolog process and switch it into the debugger.  See documentation for other options in the `language_server/1` documentation.
      2. Read the SWI Prolog STDOUT to retrieve the TCP/IP port and password. They are sent in that order, delimited by '\n'.
 
     Now the server is started. To create a connection:
@@ -67,8 +68,8 @@ The most common way to use the language server is to find a library that wraps a
  Now the connection is established. To run queries and shutdown:
 
      5. Any of the messages described in the `language_server/1` documentation can now be sent to run queries and retrieve their answers. For example, send the message `run(atom(a), -1)` to run the synchronous query `atom(a)` with no timeout and wait for the response message. It will be `true([[]])`.
-     6. Shutting down the connection is accomplished by sending the message `close`, waiting for the response message of `true([[]])`, and then closing the socket using the socket API of the language.  If the socket is closed (or fails) before the `close` message is sent, the default behavior of the servier is to terminate the SWI Prolog process using `halt(abort)` to avoid leaving the process around.  This is to support scenarios where the user is running and halting their language debugger without cleanly exiting.
-     7. Shutting down the launched server is accomplished by sending the `quit` message and waiting for the response message of `true([[]])`. This will cause an orderly shutdown and exit of the process by issuing the Prolog `halt(abort)` command.
+     6. Shutting down the connection is accomplished by sending the message `close`, waiting for the response message of `true([[]])`, and then closing the socket using the socket API of the language.  If the socket is closed (or fails) before the `close` message is sent, the default behavior of the server is to exit the SWI Prolog process to avoid leaving the process around.  This is to support scenarios where the user is running and halting their language debugger without cleanly exiting.
+     7. Shutting down the launched server is accomplished by sending the `quit` message and waiting for the response message of `true([[]])`. This will cause an orderly shutdown and exit of the process.
 
 The format of messages is described in the documentation for `language_server/1`.
 
@@ -127,17 +128,11 @@ Sets the number of pending connections allowed for the server as in `tcp_listen/
 - query_timeout(?Seconds)
 Sets the length of time a query is allowed to run before it is cancelled. `Seconds` may be a variable, causing the system to unify it with the default. The default is no timeout (`-1`).
 
-- halt_on_connection_failure(?Halt)
-Determines whether the Prolog process should halt using `halt(abort)` if there is a connection failure (i.e. the client terminates without sending a `close` message). This is so that stopping the debugger doesn't leave the process around.  However, when running as a standalone server this may not be the desired behavior. Note that this setting will also cause the Prolog process to halt if there is an unexpected exception in the threads used to communicate or run goals. This should never happen except under exceptional circumstances (out of memory, etc). `Halt` may be a variable, causing the system to unify it with the default. The default is `false`.
-
 - run_server_on_thread(?Run_Server_On_Thread)
 Determines whether `language_server/1` runs in the background on its own thread or doesn't complete until the server shuts down.  Must be set to `false` when launched by a language library so that the SWI Prolog process doesn't immediately exit.  `Run_Server_On_Thread` may be a variable, causing the system to unify it with the default. The default is `true`.
 
 - server_thread(?Server_Thread)
 Specifies or retrieves the name of the thread the server will run on if `run_server_on_thread(true)`. Passing in an atom for Server_Thread will only set the server thread name if run_server_on_thread(true).  If `Server_Thread` is a variable, it is unified with a generated name.
-
-- ignore_sig_int(?Ignore_Sig_Int)
-Determines whether the process should the should ignore the `int` (i.e. Interrupt/SIGINT) signal. It is important to ignore this signal (`Ignore_Sig_Int == true`) when running in embedded mode because some languages (such as Python) use that signal during debugging and it will be passed to the client Prolog process and switch it into the debugger. When running in standalone mode, it is OK to leave enabled (`Ignore_Sig_Int == false`).  `Ignore_Sig_Int` may be a variable, causing the system to unify it with the default. The default is `false`.
 
 - write_connection_values(?Write_Connection_Values)
 Determines whether the server writes the port and password to STDOUT as it initializes. Used by language libraries to retrieve this information for connecting. `Write_Connection_Values` may be a variable, causing the system to unify it with the default. The default is `false`.
@@ -180,7 +175,7 @@ Runs `Goal` on the connection's designated query thread. Stops accepting new com
 
 While it is waiting for the query to complete, sends a "." character *not* in message format, just as a single character, once every two seconds to proactively ensure that the client is alive. Those should be read and discarded by the client.
 
-If a communication failure happens (during a heartbeat or otherwise), the connection is terminated, the query is aborted and the server optionally shuts down using `halt(abort)` (depending on Options).
+If a communication failure happens (during a heartbeat or otherwise), the connection is terminated, the query is aborted and (if running in embedded mode) the SWI Prolog process shuts down.
 
 When completed, sends a response message using the normal message format indicating the result.
 
@@ -196,7 +191,7 @@ Response:
 
 Starts a Prolog query on the connection's designated query thread. Answers to the query, including exceptions, are retrieved afterwards by sending the `async_result/1` message (described below). The query can be cancelled by sending the `cancel_async/0` message. If a previous query is still in progress, waits until that query finishes (discarding that query's results) before responding.
 
-If the socket closes before responding, the connection is terminated, the query is aborted and the server optionally shuts down using `halt(abort)` (depending on Options).
+If the socket closes before responding, the connection is terminated, the query is aborted and (if running in embedded mode) the SWI Prolog process shuts down.
 
 If it needs to wait for the previous query to complete, it will send heartbeat messages (see the `Language Server Message Format` section) while it waits.  After it responds, however, it does not send more heartbeats. This is so that it can begin accepting new commands immediately after responding so the client.
 
@@ -265,7 +260,7 @@ Response:
 
 
 #### close
-Closes a connection cleanly, indicating that the subsequent socket close is not a connection failure. Thus it doesn't shutdown the server if option `halt_on_connection_failure(true)`.  The response must be processed by the client before closing the socket or it will be interpreted as a connection failure.
+Closes a connection cleanly, indicating that the subsequent socket close is not a connection failure. Thus it doesn't shutdown the server.  The response must be processed by the client before closing the socket or it will be interpreted as a connection failure.
 
 Any asynchronous query that is still running will be halted by using `abort/0` in the connection's query thread.
 
@@ -274,7 +269,7 @@ Response:
 
 
 #### quit
-Stops the server and ends the SWI Prolog process using `halt(abort)`, regardless of Options settings. This allows client language libraries to ask for an orderly shutdown of the Prolog process.
+Stops the server and ends the SWI Prolog process. This allows client language libraries to ask for an orderly shutdown of the Prolog process.
 
 Response:
 `true([[]])`
@@ -309,21 +304,16 @@ language_server(Options) :-
     option_fill_result(Connection_Count, pending_connections(Connection_Count), Options, 5),
     Encoding = utf8,
     option_fill_result(Query_Timeout, query_timeout(Query_Timeout), Options, -1),
-    option_fill_result(Halt_On_Failure, halt_on_connection_failure(Halt_On_Failure), Options, false),
     option_fill_result(Port, port(Port), Options, _),
     option_fill_result(Run_Server_On_Thread, run_server_on_thread(Run_Server_On_Thread), Options, true),
+    option(exit_main_on_failure(Exit_Main_On_Failure), Options, false),
     gensym(language_server, Default_Server_Thread_ID),
     option_fill_result(Server_Thread_ID, server_thread(Server_Thread_ID), Options, Default_Server_Thread_ID),
-    option_fill_result(Ignore_Sig_Int, ignore_sig_int(Ignore_Sig_Int), Options, false),
     option_fill_result(Write_Connection_Values, write_connection_values(Write_Connection_Values), Options, false),
     uuid(UUID, [format(integer)]),
     format(string(Generated_Password), '~d', [UUID]),
     option_fill_result(Password, password(Password), Options, Generated_Password),
     option(unix_domain_socket(Unix_Domain_Socket_Path_And_File), Options, _),
-    (   Ignore_Sig_Int
-    ->  on_signal(int, _, exit_prolog)
-    ;   true
-    ),
     bind_socket(Server_Thread_ID, Unix_Domain_Socket_Path_And_File, Port, Socket, Client_Address),
     send_client_startup_data(Write_Connection_Values, user_output, Unix_Domain_Socket_Path_And_File, Client_Address, Password),
     option(write_output_to_file(File), Options, _),
@@ -333,14 +323,30 @@ language_server(Options) :-
     ),
     string_concat(Password, '.\n', Final_Password),
     Server_Goal = (
-                    catch(server_thread(Server_Thread_ID, Socket, Client_Address, Final_Password, Connection_Count, Encoding, Query_Timeout, Halt_On_Failure), error(E1, E2), true),
+                    catch(server_thread(Server_Thread_ID, Socket, Client_Address, Final_Password, Connection_Count, Encoding, Query_Timeout, Exit_Main_On_Failure), error(E1, E2), true),
                     debug(prologServer(protocol), "Stopped server on thread: ~w due to exception: ~w", [Server_Thread_ID, error(E1, E2)])
                  ),
     start_server_thread(Run_Server_On_Thread, Server_Thread_ID, Server_Goal, Unix_Domain_Socket_Path_And_File).
 
-exit_prolog(_) :-
-    debug(prologServer(protocol), "exit_prolog called", []),
-    halt(0).
+:- initialization(main,main).
+
+
+% Turn off int signal when running in embedded mode so the client language
+% debugger signal doesn't put Prolog into debug mode
+main(Argv) :-
+    argv_options(Argv, _Args, Options),
+    findall(Option_Out, (   member(Option, Options),
+                            compound_name_arguments(Option, Name, [Argument]),
+                            remove_wrapping_quotes(Argument, Argument_Out),
+                            compound_name_arguments(Option_Out, Name, [Argument_Out])
+                        ), Unwrapped_Options),
+    append(Unwrapped_Options, [exit_main_on_failure(true)], FinalOptions),
+    language_server(FinalOptions),
+    on_signal(int, _, quit),
+    thread_get_message(quit_language_server).
+
+quit(_) :-
+    thread_send_message(main, quit_language_server).
 
 %! stop_language_server(+Server_Thread_ID:atom) is det.
 %
@@ -444,20 +450,20 @@ send_client_startup_data(Write_Connection_Values, Stream, Unix_Domain_Socket_Pat
 % Server thread worker predicate
 % Listen for connections and create a connection for each in its own communication thread
 % Uses tail recursion to ensure the stack doesn't grow
-server_thread(Server_Thread_ID, Socket, Address, Password, Connection_Count, Encoding, Query_Timeout, Halt_On_Failure) :-
+server_thread(Server_Thread_ID, Socket, Address, Password, Connection_Count, Encoding, Query_Timeout, Exit_Main_On_Failure) :-
     stack_level(Level),
     debug(prologServer(protocol), "Listening on address: ~w, Stack = ~w", [Address, Level]),
     tcp_listen(Socket, Connection_Count),
     tcp_open_socket(Socket, AcceptFd, _),
-    create_connection(Server_Thread_ID, AcceptFd, Password, Encoding, Query_Timeout, Halt_On_Failure),
-    server_thread(Server_Thread_ID, Socket, Address, Password, Connection_Count, Encoding, Query_Timeout, Halt_On_Failure).
+    create_connection(Server_Thread_ID, AcceptFd, Password, Encoding, Query_Timeout, Exit_Main_On_Failure),
+    server_thread(Server_Thread_ID, Socket, Address, Password, Connection_Count, Encoding, Query_Timeout, Exit_Main_On_Failure).
 
 
 % Wait for the next connection and create communication and goal threads to support it
 % Create known IDs for the threads so we can pass them along before the threads are created
 % First create the goal thread to avoid a race condition where the communication
 % thread tries to queue a goal before it is created
-create_connection(Server_Thread_ID, AcceptFd, Password, Encoding, Query_Timeout, Halt_On_Failure) :-
+create_connection(Server_Thread_ID, AcceptFd, Password, Encoding, Query_Timeout, Exit_Main_On_Failure) :-
     debug(prologServer(protocol), "Waiting for client connection...", []),
     tcp_accept(AcceptFd, Socket, _Peer),
     debug(prologServer(protocol), "Client connected", []),
@@ -469,7 +475,7 @@ create_connection(Server_Thread_ID, AcceptFd, Password, Encoding, Query_Timeout,
     thread_create(goal_thread(Thread_Alias),
         _,
         [alias(Goal_Alias), at_exit(detach_if_expected(Goal_Alias))]),
-    thread_create(communication_thread(Password, Socket, Encoding, Server_Thread_ID, Goal_Alias, Query_Timeout, Halt_On_Failure),
+    thread_create(communication_thread(Password, Socket, Encoding, Server_Thread_ID, Goal_Alias, Query_Timeout, Exit_Main_On_Failure),
         _,
         [alias(Thread_Alias), at_exit(detach_if_expected(Thread_Alias))]).
 
@@ -549,9 +555,9 @@ run_cancellable_goal(Mutex_ID, Goal) :-
 %   thread if there is a communication failure.
 %
 % True means user explicitly called close or there was an exception
-%   only halt if there was an exception and we are supposed to Halt_On_Failure
+%   only exit the main thread if there was an exception and we are supposed to Exit_Main_On_Failure
 %   otherwise just exit the session
-communication_thread(Password, Socket, Encoding, Server_Thread_ID, Goal_Thread_ID, Query_Timeout, Halt_On_Failure) :-
+communication_thread(Password, Socket, Encoding, Server_Thread_ID, Goal_Thread_ID, Query_Timeout, Exit_Main_On_Failure) :-
     thread_self(Self_ID),
     (   (
             catch(communication_thread_listen(Password, Socket, Encoding, Server_Thread_ID, Goal_Thread_ID, Query_Timeout), error(Serve_Exception1, Serve_Exception2), true),
@@ -559,12 +565,12 @@ communication_thread(Password, Socket, Encoding, Server_Thread_ID, Goal_Thread_I
             abortSilentExit(Goal_Thread_ID, _),
             retractall(language_server_worker_threads(Server_Thread_ID, Self_ID, Goal_Thread_ID))
         )
-    ->  Halt = (nonvar(Serve_Exception), Halt_On_Failure)
+    ->  Halt = (nonvar(Serve_Exception1), Exit_Main_On_Failure)
     ;   Halt = true
     ),
     (   Halt
-    ->  (   debug(prologServer(protocol), "Ending session and halting Prolog server due to thread ~w: exception(~w)", [Self_ID, Serve_Exception]),
-            halt(0)
+    ->  (   debug(prologServer(protocol), "Ending session and halting Prolog server due to thread ~w: exception(~w)", [Self_ID, error(Serve_Exception1, Serve_Exception2)]),
+            quit(_)
         )
     ;   (   debug(prologServer(protocol), "Ending session ~w", [Self_ID]),
             catch(tcp_close_socket(Socket), error(_, _), true)
@@ -608,7 +614,7 @@ communication_thread_listen(Password, Socket, Encoding, Server_Thread_ID, Goal_T
 % uses tail recursion to ensure the stack doesn't grow
 %
 % true: indicates we should terminate the session (clean termination)
-% false: indicates we should halt(abort)
+% false: indicates we should exit the process if running in embedded mode
 % exception: indicates we should terminate the session (communication failure termination) or
 %    thread was asked to halt
 process_language_server_messages(Read_Stream, Write_Stream, Goal_Thread_ID, Query_Timeout) :-
@@ -1027,6 +1033,21 @@ detach_if_expected(Thread_ID) :-
         )
     ;   true
     ).
+
+% Command line args that have spaces need to be delimited with ""
+% but these quotes get embedded in the atom.
+% remove_wrapping_quotes removes them
+remove_wrapping_quotes(Atom_In, Atom_Out) :-
+    atom_chars(Atom_In, Atom_Chars),
+    (   (   Atom_Chars = ['\"' | AtomRest],
+            reverse(AtomRest,['\"'|X1]),
+            reverse(X1,Atom_Chars_Out),
+            atom_chars(Atom_Out, Atom_Chars_Out)
+        )
+    ->  true
+    ;   Atom_Out = Atom_In
+    ).
+
 
 write_output_to_file(File) :-
     debug(prologServer(protocol), "Writing all STDOUT and STDERR to file:~w", [File]),

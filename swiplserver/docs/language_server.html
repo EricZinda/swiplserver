@@ -82,7 +82,7 @@ The basic rule to remember is: any predicates designed to interact with or chang
 The most common way to use the language server is to find a library that wraps and exposes it as a native part of another programming language such as Python. This section describes how to build one if there isn't yet a library for your language. To do this, you'll need to familiarize yourself with the server protocol as described in the <a href="language_server.html#language_server/1">language_server/1</a> documentation. However, to give an idea of the scope of work required, below is a typical interaction done (invisibly to the user) in the implementation of any programming language library:</p>
 
 <ol>
-<li>Launch the SWI Prolog process using a command like `swipl --quiet -g <code>language_server([write_connection_values(true), halt_on_connection_failure(true), ignore_sig_int(true), run_server_on_thread(false)])</code> -t halt` To work, the <code>swipl</code> Prolog executable will need to be on the path or specified in the command. This launches the server and ensures that the process exits when the connections are closed (or fail). <code>run_server_on_thread(false)</code> is required otherwise the server will run on a thread and the process will exit immediately. See documentation for all of the options in the <a href="language_server.html#language_server/1">language_server/1</a> documentation.</li>
+<li>Launch the SWI Prolog process using (along with any other options the user requests): `swipl /&lt;path&gt;/<a class="file" href="">language_server.pl</a> --write_connection_values=true`. To work, the <code>swipl</code> Prolog executable will need to be on the path or specified in the command. This launches the server and writes the chosen port and password to STDOUT. This way of launching invokes a (non-exported) predicate called <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=main/1">main/1</a> that turns off the <code>int</code> (i.e. Interrupt/SIGINT) signal to Prolog. This is because some languages (such as Python) use that signal during debugging and it would be otherwise passed to the client Prolog process and switch it into the debugger. See documentation for other options in the <a href="language_server.html#language_server/1">language_server/1</a> documentation.</li>
 <li>Read the SWI Prolog STDOUT to retrieve the TCP/IP port and password. They are sent in that order, delimited by '\n'.</li>
 </ol>
 
@@ -99,8 +99,8 @@ Now the connection is established. To run queries and shutdown:</p>
 
 <ol>
 <li>Any of the messages described in the <a href="language_server.html#language_server/1">language_server/1</a> documentation can now be sent to run queries and retrieve their answers. For example, send the message <code>run(atom(a), -1)</code> to run the synchronous query <code>atom(a)</code> with no timeout and wait for the response message. It will be <code>true([[]])</code>.</li>
-<li>Shutting down the connection is accomplished by sending the message <code>close</code>, waiting for the response message of <code>true([[]])</code>, and then closing the socket using the socket API of the language. If the socket is closed (or fails) before the <code>close</code> message is sent, the default behavior of the servier is to terminate the SWI Prolog process using <code>halt(abort)</code> to avoid leaving the process around. This is to support scenarios where the user is running and halting their language debugger without cleanly exiting.</li>
-<li>Shutting down the launched server is accomplished by sending the <code>quit</code> message and waiting for the response message of <code>true([[]])</code>. This will cause an orderly shutdown and exit of the process by issuing the Prolog <code>halt(abort)</code> command.</li>
+<li>Shutting down the connection is accomplished by sending the message <code>close</code>, waiting for the response message of <code>true([[]])</code>, and then closing the socket using the socket API of the language. If the socket is closed (or fails) before the <code>close</code> message is sent, the default behavior of the server is to exit the SWI Prolog process to avoid leaving the process around. This is to support scenarios where the user is running and halting their language debugger without cleanly exiting.</li>
+<li>Shutting down the launched server is accomplished by sending the <code>quit</code> message and waiting for the response message of <code>true([[]])</code>. This will cause an orderly shutdown and exit of the process.</li>
 </ol>
 
 <p>
@@ -165,10 +165,8 @@ For debugging, the server outputs traces using the <a class="builtin" href="http
 <dt class="term"><b class="pred">password</b><var class="arglist">(?Password)</var></dt><dd>The password required for a connection. If not specified (recommended), the server will generate one as a Prolog string type since Prolog atoms are globally visible. Be sure to not convert to an atom for this reason. If the option <code>write_connection_values(true)</code> is set, the password is output to STDOUT followed by <code>\n</code> on startup to allow the client language library to retrieve it. This is the recommended way to integrate the server with a language as it avoids including the password as source code (which could then be discovered). This option is only included so that a known password can be supplied for when the server is running in "Standalone Mode". <var>Password</var> may be a variable, causing the system to unify it with the created password.</dd>
 <dt class="term"><b class="pred">pending_connections</b><var class="arglist">(?Count)</var></dt><dd>Sets the number of pending connections allowed for the server as in <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=tcp_listen/2">tcp_listen/2</a>. <var>Count</var> may be a variable, causing the system to unify it with the default. The default is <code>5</code>.</dd>
 <dt class="term"><b class="pred">query_timeout</b><var class="arglist">(?Seconds)</var></dt><dd>Sets the length of time a query is allowed to run before it is cancelled. <var>Seconds</var> may be a variable, causing the system to unify it with the default. The default is no timeout (<code>-1</code>).</dd>
-<dt class="term"><b class="pred">halt_on_connection_failure</b><var class="arglist">(?Halt)</var></dt><dd>Determines whether the Prolog process should halt using <code>halt(abort)</code> if there is a connection failure (i.e. the client terminates without sending a <code>close</code> message). This is so that stopping the debugger doesn't leave the process around. However, when running as a standalone server this may not be the desired behavior. Note that this setting will also cause the Prolog process to halt if there is an unexpected exception in the threads used to communicate or run goals. This should never happen except under exceptional circumstances (out of memory, etc). <var>Halt</var> may be a variable, causing the system to unify it with the default. The default is <code>false</code>.</dd>
 <dt class="term"><b class="pred">run_server_on_thread</b><var class="arglist">(?Run_Server_On_Thread)</var></dt><dd>Determines whether <a href="language_server.html#language_server/1">language_server/1</a> runs in the background on its own thread or doesn't complete until the server shuts down. Must be set to <code>false</code> when launched by a language library so that the SWI Prolog process doesn't immediately exit. <var>Run_Server_On_Thread</var> may be a variable, causing the system to unify it with the default. The default is <code>true</code>.</dd>
 <dt class="term"><b class="pred">server_thread</b><var class="arglist">(?Server_Thread)</var></dt><dd>Specifies or retrieves the name of the thread the server will run on if <code>run_server_on_thread(true)</code>. Passing in an atom for <var>Server_Thread</var> will only set the server thread name if <code>run_server_on_thread(true)</code>. If <var>Server_Thread</var> is a variable, it is unified with a generated name.</dd>
-<dt class="term"><b class="pred">ignore_sig_int</b><var class="arglist">(?Ignore_Sig_Int)</var></dt><dd>Determines whether the process should the should ignore the <code>int</code> (i.e. Interrupt/SIGINT) signal. It is important to ignore this signal (<code>Ignore_Sig_Int == true</code>) when running in embedded mode because some languages (such as Python) use that signal during debugging and it will be passed to the client Prolog process and switch it into the debugger. When running in standalone mode, it is OK to leave enabled (<code>Ignore_Sig_Int == false</code>). <var>Ignore_Sig_Int</var> may be a variable, causing the system to unify it with the default. The default is <code>false</code>.</dd>
 <dt class="term"><b class="pred">write_connection_values</b><var class="arglist">(?Write_Connection_Values)</var></dt><dd>Determines whether the server writes the port and password to STDOUT as it initializes. Used by language libraries to retrieve this information for connecting. <var>Write_Connection_Values</var> may be a variable, causing the system to unify it with the default. The default is <code>false</code>.</dd>
 <dt class="term"><b class="pred">write_output_to_file</b><var class="arglist">(+File)</var></dt><dd>Redirects STDOUT and STDERR to the file specified. Useful for debugging the server when it is being used in embedded mode. If using multiple servers in one SWI Prolog instance, only set this on the first one. Each time it is set the output will be deleted and redirected.</dd>
 </dl>
@@ -223,7 +221,7 @@ Runs <var>Goal</var> on the connection's designated query thread. Stops acceptin
 While it is waiting for the query to complete, sends a "." character <b>not</b> in message format, just as a single character, once every two seconds to proactively ensure that the client is alive. Those should be read and discarded by the client.</p>
 
 <p>
-If a communication failure happens (during a heartbeat or otherwise), the connection is terminated, the query is aborted and the server optionally shuts down using <code>halt(abort)</code> (depending on <var>Options</var>).</p>
+If a communication failure happens (during a heartbeat or otherwise), the connection is terminated, the query is aborted and (if running in embedded mode) the SWI Prolog process shuts down.</p>
 
 <p>
 When completed, sends a response message using the normal message format indicating the result.</p>
@@ -245,7 +243,7 @@ Response:</p>
 Starts a Prolog query on the connection's designated query thread. Answers to the query, including exceptions, are retrieved afterwards by sending the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> message (described below). The query can be cancelled by sending the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=cancel_async/0">cancel_async/0</a> message. If a previous query is still in progress, waits until that query finishes (discarding that query's results) before responding.</p>
 
 <p>
-If the socket closes before responding, the connection is terminated, the query is aborted and the server optionally shuts down using <code>halt(abort)</code> (depending on <var>Options</var>).</p>
+If the socket closes before responding, the connection is terminated, the query is aborted and (if running in embedded mode) the SWI Prolog process shuts down.</p>
 
 <p>
 If it needs to wait for the previous query to complete, it will send heartbeat messages (see the `Language Server Message Format` section) while it waits. After it responds, however, it does not send more heartbeats. This is so that it can begin accepting new commands immediately after responding so the client.</p>
@@ -341,7 +339,7 @@ Response:</p>
 <h4 class="wiki">close</h4>
 
 <p>
-Closes a connection cleanly, indicating that the subsequent socket close is not a connection failure. Thus it doesn't shutdown the server if option <code>halt_on_connection_failure(true)</code>. The response must be processed by the client before closing the socket or it will be interpreted as a connection failure.</p>
+Closes a connection cleanly, indicating that the subsequent socket close is not a connection failure. Thus it doesn't shutdown the server. The response must be processed by the client before closing the socket or it will be interpreted as a connection failure.</p>
 
 <p>
 Any asynchronous query that is still running will be halted by using <a class="builtin" href="http://www.swi-prolog.org/pldoc/man?predicate=abort/0">abort/0</a> in the connection's query thread.</p>
@@ -353,7 +351,7 @@ Response:
 <h4 class="wiki">quit</h4>
 
 <p>
-Stops the server and ends the SWI Prolog process using <code>halt(abort)</code>, regardless of <var>Options</var> settings. This allows client language libraries to ask for an orderly shutdown of the Prolog process.</p>
+Stops the server and ends the SWI Prolog process. This allows client language libraries to ask for an orderly shutdown of the Prolog process.</p>
 
 <p>
 Response:

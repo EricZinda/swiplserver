@@ -206,7 +206,6 @@ class PrologServer:
                  unix_domain_socket: str = None,
                  query_timeout_seconds: float = None,
                  pending_connection_count: int = None,
-                 halt_on_connection_failure: bool = True,
                  output_file_name: str = None,
                  server_traces: bool = False):
         """
@@ -255,11 +254,12 @@ class PrologServer:
                 When launch_server is True, None uses the default (5) and other values set the count.
                 When launch_server is False, ignored.
 
-            halt_on_connection_failure: True (default) halt the launched server (i.e. execute prolog `halt(abort).` and kill the process) if a started `PrologThread` class or a thread running in the server terminates unexpectedly. In both cases, halting the server is a good course of action since the system is in an unstable state or your application Python process has been killed. Setting this value to False is only recommended for testing or unusual debugging scenarios.  Ignored if launch_server is False.
-
             output_file_name: Provide the file name for a file to redirect all Prolog output (STDOUT and STDERR) to. Used for debugging or gathering a log of Prolog output. None outputs all Prolog output to the Python logging infrastructure using the 'swiplserver' log.  If using multiple servers in one SWI Prolog instance, only set this on the first one.  Each time it is set the output will be deleted and redirected.
 
             server_traces: Only used in unusual debugging circumstances. True turns on all tracing output from Prolog `language_server/1` server (i.e. runs `debug(prologServer(_)).` in Prolog). Since these are Prolog traces, where they go is determined by output_file_name.
+
+        Raises:
+            ValueError if the arguments don't make sense.  For example: choosing Unix Domain Sockets on Windows or setting output_file with launch_server = False
         """
         self._port = port
         self._password = password
@@ -268,7 +268,6 @@ class PrologServer:
         self._stdout_reader = None
         self._query_timeout = query_timeout_seconds
         self.pending_connections = pending_connection_count
-        self._halt_on_connection_failure = halt_on_connection_failure
         self._output_file = output_file_name
         self._unix_domain_socket = unix_domain_socket
         self._server_traces = server_traces
@@ -278,6 +277,14 @@ class PrologServer:
         # where the server is clearly shutdown and thus more communication
         # will not work and probably hang.
         self.connection_failed = False
+
+        # Ensure arguments are valid
+        if self._unix_domain_socket is not None:
+            if os.name == "nt":
+                raise ValueError("Unix Domain Sockets are not supported on windows")
+
+        if self._launch_server is False and self._output_file is not None:
+            raise ValueError("output_file only works when launch_server is True.")
 
     def __enter__(self):
         self.start()
@@ -296,7 +303,7 @@ class PrologServer:
         Does nothing if launch_server is False.
 
         Args:
-            kill: False (default) connect to the server and ask it to halt (i.e. Prolog `halt(abort)`) which will execute an orderly shutdown of Prolog.  True uses the Python subprocess.kill() command which will terminate it immediately. Note that if PrologServer.connection_failed is set to true (due to a failure that indicates the server will not respond), subprocess.kill() will be used regardless of this setting.
+            kill: False (default) connect to the server and ask it to perform an orderly shutdown of Prolog and exit the process.  True uses the Python subprocess.kill() command which will terminate it immediately. Note that if PrologServer.connection_failed is set to true (due to a failure that indicates the server will not respond), subprocess.kill() will be used regardless of this setting.
         """
         if self._process:
             if kill is True or self.connection_failed:
@@ -328,28 +335,29 @@ class PrologServer:
         """
         if self._launch_server:
             prologPath = join(os.path.dirname(os.path.realpath(__file__)), "language_server.pl")
-            options = ["halt_on_connection_failure({})".format("true" if self._halt_on_connection_failure else "false")]
+            # Needs to be this: swipl --quiet -g command_line_language_server -t halt  /Users/ericzinda/Enlistments/swiplserver/swiplserver/language_server.pl  --write_connection_values=true
+            launchArgs = ["swipl",
+                          prologPath,
+                          "--write_connection_values=true"]
+
             if self.pending_connections is not None:
-                options.append("pending_connections({})".format(str(self.pending_connections)))
+                launchArgs += ["--pending_connections={}".format(str(self.pending_connections))]
             if self._query_timeout is not None:
-                options.append("query_timeout({})".format(str(self._query_timeout)))
+                launchArgs += ["--query_timeout={}".format(str(self._query_timeout))]
             if self._password is not None:
-                options.append("password('{}')".format(str(self._password)))
+                launchArgs += ["--password=\"{}\"".format(str(self._password))]
             if self._output_file is not None:
                 finalPath = create_posix_path(self._output_file)
-                options.append("write_output_to_file('{}')".format(finalPath))
+                launchArgs += ["--write_output_to_file=\"{}\"".format(finalPath)]
                 _log.debug("Writing all Prolog output to file: %s", finalPath)
             if self._port is not None:
-                options.append("port({})".format(str(self._port)))
+                launchArgs += ["--port={}".format(str(self._port))]
             if self._unix_domain_socket is not None:
                 if os.name == "nt":
                     raise PrologLaunchError("Unix Domain Sockets are not supported on windows")
                 else:
-                    options.append("unix_domain_socket('{}')".format(self._unix_domain_socket))
+                    launchArgs += ["--unix_domain_socket=\"{}\"".format(self._unix_domain_socket)]
 
-            launchArgs = ["swipl", "--quiet", "-s", prologPath, "-g",
-                          "language_server([write_connection_values(true), run_server_on_thread(false), ignore_sig_int(true), {}])".format(",".join(options)),
-                          "-t", "halt"]
             _log.debug("PrologServer launching swipl: %s", launchArgs)
             try:
                 self._process = subprocess.Popen(launchArgs, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -673,7 +681,7 @@ class PrologThread:
 
     def halt_server(self):
         """
-        Perform an orderly shutdown of the server using Prolog `halt(abort)` and end the Prolog process.
+        Perform an orderly shutdown of the server and end the Prolog process.
 
         This is called automatically by `PrologServer.stop()` and when a `PrologServer` instance is used in a Python `with` statement.
         """

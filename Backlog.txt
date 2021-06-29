@@ -1,7 +1,4 @@
-
-
-- Should run_async send heartbeats after it is done draining, but while it is waiting for the result?
-- Need tests to test draining of previous query, including long enough to send heartbeats
-- Signal Handling Update?
+- Get Domain sockets using the right interface
+- get rid of default options
 - Organize as a package for incorporation into SWI Prolog
 - Get feedback from SWI Prolog community

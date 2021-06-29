@@ -356,7 +356,7 @@ json_term must be in the Prolog json format. See <code><a title="swiplserver.pro
 </dd>
 <dt id="swiplserver.prologserver.PrologServer"><code class="flex name class">
 <span>class <span class="ident">PrologServer</span></span>
-<span>(</span><span>launch_server: bool = True, port: int = None, password: str = None, unix_domain_socket: str = None, query_timeout_seconds: float = None, pending_connection_count: int = None, halt_on_connection_failure: bool = True, output_file_name: str = None, server_traces: bool = False)</span>
+<span>(</span><span>launch_server: bool = True, port: int = None, password: str = None, unix_domain_socket: str = None, query_timeout_seconds: float = None, pending_connection_count: int = None, output_file_name: str = None, server_traces: bool = False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Initialize a PrologServer class that manages a SWI Prolog process associated with your application process. <code><a title="swiplserver.prologserver.PrologServer.start" href="#swiplserver.prologserver.PrologServer.start">PrologServer.start()</a></code> actually launches the process if launch_server is True.</p>
@@ -403,16 +403,16 @@ When launch_server is False, must be set to match the password specified in lang
 <dd>Set the default number of pending connections allowed on the server. Since the server is only connected to by your application and is not a server, this value should probably never be changed unless your application is creating new PrologThread objects at a very high rate.
 When launch_server is True, None uses the default (5) and other values set the count.
 When launch_server is False, ignored.</dd>
-<dt><strong><code>halt_on_connection_failure</code></strong></dt>
-<dd>True (default) halt the launched server (i.e. execute prolog <code>halt(abort).</code> and kill the process) if a started <code><a title="swiplserver.prologserver.PrologThread" href="#swiplserver.prologserver.PrologThread">PrologThread</a></code> class or a thread running in the server terminates unexpectedly. In both cases, halting the server is a good course of action since the system is in an unstable state or your application Python process has been killed. Setting this value to False is only recommended for testing or unusual debugging scenarios.
-Ignored if launch_server is False.</dd>
 <dt><strong><code>output_file_name</code></strong></dt>
 <dd>Provide the file name for a file to redirect all Prolog output (STDOUT and STDERR) to. Used for debugging or gathering a log of Prolog output. None outputs all Prolog output to the Python logging infrastructure using the 'swiplserver' log.
 If using multiple servers in one SWI Prolog instance, only set this on the first one.
 Each time it is set the output will be deleted and redirected.</dd>
 <dt><strong><code>server_traces</code></strong></dt>
 <dd>Only used in unusual debugging circumstances. True turns on all tracing output from Prolog <code>language_server/1</code> server (i.e. runs <code>debug(prologServer(_)).</code> in Prolog). Since these are Prolog traces, where they go is determined by output_file_name.</dd>
-</dl></div>
+</dl>
+<h2 id="raises">Raises</h2>
+<p>ValueError if the arguments don't make sense.
+For example: choosing Unix Domain Sockets on Windows or setting output_file with launch_server = False</p></div>
 <h3>Static methods</h3>
 <dl>
 <dt id="swiplserver.prologserver.PrologServer.unix_domain_socket_file"><code class="name flex">
@@ -481,7 +481,7 @@ Each time it is set the output will be deleted and redirected.</dd>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>kill</code></strong></dt>
-<dd>False (default) connect to the server and ask it to halt (i.e. Prolog <code>halt(abort)</code>) which will execute an orderly shutdown of Prolog.
+<dd>False (default) connect to the server and ask it to perform an orderly shutdown of Prolog and exit the process.
 True uses the Python subprocess.kill() command which will terminate it immediately. Note that if PrologServer.connection_failed is set to true (due to a failure that indicates the server will not respond), subprocess.kill() will be used regardless of this setting.</dd>
 </dl></div>
 </dd>
@@ -543,7 +543,7 @@ Calling <code><a title="swiplserver.prologserver.PrologThread.query_async_result
 <span>def <span class="ident">halt_server</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Perform an orderly shutdown of the server using Prolog <code>halt(abort)</code> and end the Prolog process.</p>
+<div class="desc"><p>Perform an orderly shutdown of the server and end the Prolog process.</p>
 <p>This is called automatically by <code><a title="swiplserver.prologserver.PrologServer.stop" href="#swiplserver.prologserver.PrologServer.stop">PrologServer.stop()</a></code> and when a <code><a title="swiplserver.prologserver.PrologServer" href="#swiplserver.prologserver.PrologServer">PrologServer</a></code> instance is used in a Python <code>with</code> statement.</p></div>
 </dd>
 <dt id="swiplserver.prologserver.PrologThread.query"><code class="name flex">
