@@ -3,7 +3,7 @@
 
 `swiplserver` is a Python module designed for developers that want to use SWI Prolog in the implementation of a Python application. It allows running any query you could run from the SWI Prolog console (i.e. the "top level") from within your Python code. Answers to Prolog queries are returned as JSON.
 
-The library integrates SWI Prolog by launching it and connecting to a special server running inside Prolog called the [Prolog Language Server](https://blog.inductorsoftware.com/swiplserver/language_server/language_server.html). Queries are run using the Python library. The library manages launching and shutting down the server automatically, making the process management invisible to the developer.  The whole process should feel just like using any other library.
+The library integrates SWI Prolog by launching it and connecting to a special server running inside Prolog called the Prolog Language Server. Queries are run using the Python library. The library manages launching and shutting down the server automatically, making the process management invisible to the developer.  The whole process should feel just like using any other library.
 
 ~~~
 from swiplserver import PrologServer, PrologThread
