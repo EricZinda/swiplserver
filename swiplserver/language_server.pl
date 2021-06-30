@@ -123,7 +123,7 @@ The TCP/IP port to bind to on localhost. This option is ignored if the `unix_dom
 - unix_domain_socket(?Unix_Domain_Socket_Path_And_File)
 If set, Unix Domain Sockets will be used as the way to communicate with the server. `Unix_Domain_Socket_Path_And_File` specifies the fully qualified path and filename to use for the socket.
 
-To have one generated instead (recommended), pass `Unix_Domain_Socket_Path_And_File` as a variable when calling from the Prolog top level and the variable will be unified with a created filename. If launching in Embedded Mode (as described in the section on "Embedded Mode"), instead pass =|--create_unix_domain_socket=true|= since there isn't a way to specify variables from the command line. When generating the file, a temporary directory and socket file will be created automatically in "/tmp" following the below requirements.  If "/tmp" does not exist, language_server/1 fails.
+To have one generated instead (recommended), pass `Unix_Domain_Socket_Path_And_File` as a variable when calling from the Prolog top level and the variable will be unified with a created filename. If launching in Embedded Mode (as described in the section on "Embedded Mode"), instead pass =|--create_unix_domain_socket=true|= since there isn't a way to specify variables from the command line. When generating the file, a temporary directory will be created using `tmp_file/2` and socket file will be created within that directory following the below requirements.  If the directory and file are unable to be created for some reason, language_server/1 fails.
 
 Regardless of whether the file is specified or generated, if the option `write_connection_values(true)` is set, the fully qualified path to the generated file is output to STDOUT followed by `\n` on startup to allow the client language library to retrieve it.
 
@@ -1075,7 +1075,8 @@ write_output_to_file(File) :-
     set_prolog_IO(user_input, Stream, Stream).
 
 
-% Creates a Unix Domain Socket file
+% Creates a Unix Domain Socket file in a secured directory.
+% Throws if the directory or file cannot be created in /tmp for any reason
 % Requirements for this file are:
 %    - The Prolog process will attempt to create and, if Prolog exits cleanly,
 %           delete this file when the server closes.  This means the directory
@@ -1087,23 +1088,20 @@ write_output_to_file(File) :-
 %    - The path must be below 92 *bytes* long (including null terminator) to
 %           be portable according to the Linux documentation
 %
-% Creates a temporary subdirectory and temporary file in "/tmp".  If this
-%      directory doesn't exist, will fail.
-% Need to call shell/1 as make_directory/1 doesn't allow setting permissions
-% Need mkdir /tmp as opposed to one of the mktemp variants, as those work
-%     differently across mac and other linux and can generate large paths
-%     (and also don't allow setting permissions)
-% Make a 38 byte pseudo random directory name using uuid
-% Create with 700 (rwx------)  permission so it is only accessible by current user
+% tmp_file finds the right /tmp directory, even on Mac OS, so the path is small
+% Set 700 (rwx------)  permission so it is only accessible by current user
 % Create a secure tmp file in the new directory
-% {set,current}_prolog_flag is copied to a thread, so
-% no need to use a mutex.
+% {set,current}_prolog_flag is copied to a thread, so no need to use a mutex.
 % Close the stream so sockets can use it
 unix_domain_socket_path(Created_Directory, Absolute_File_Path) :-
-    uuid(UUID, [format(integer)]),
-    format(atom(Created_Directory), '/tmp/~d', [UUID]),
-    format(atom(Make_Directory_Command), 'mkdir -m 700 ~s', [Created_Directory]),
-    shell(Make_Directory_Command),
+    tmp_file(udsock, Created_Directory),
+    make_directory(Created_Directory),
+    catch(  chmod(Created_Directory, urwx),
+            Exception,
+            (   catch(delete_directory(Created_Directory), error(_, _), true),
+                throw(Exception)
+            )
+    ),
     setup_call_cleanup( (   current_prolog_flag(tmp_dir, Save_Tmp_Dir),
                             set_prolog_flag(tmp_dir, Created_Directory)
                         ),

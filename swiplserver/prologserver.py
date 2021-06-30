@@ -241,7 +241,7 @@ class PrologServer:
                 When launch_server is True, None (default) automatically generates a strong password using a uuid. Other values specify the password to use.
                 When launch_server is False, must be set to match the password specified in language_server/1 of the running SWI Prolog process.
 
-            unix_domain_socket: None (default) use localhost TCP/IP for communication with the SWI Prolog process. Otherwise (only on Unix) is either a fully qualified path and filename of the Unix Domain Socket to use or an empty string (recommended). An empty string will cause a temporary directory and socket file to be generated automatically in "/tmp" that follows the below requirements. If "/tmp" does not exist, `PrologServer.start()` with raise an exception. Specifying a file to use should follow the same guidelines as the generated file:
+            unix_domain_socket: None (default) use localhost TCP/IP for communication with the SWI Prolog process. Otherwise (only on Unix) is either a fully qualified path and filename of the Unix Domain Socket to use or an empty string (recommended). An empty string will cause a temporary directory to be created using Prolog's `tmp_file/2` and a socket file will be created within that directory following the below requirements.  If the directory and file are unable to be created for some reason, `PrologServer.start()` with raise an exception. Specifying a file to use should follow the same guidelines as the generated file:
 
                 - If the file exists when the server is launched, it will be deleted.
                 - If the path is not an absolute path, an exception will be thrown.

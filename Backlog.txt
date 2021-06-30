@@ -1,7 +1,3 @@
-- Support automatically generating Unix Domain Sockets using unix_domain_socket(Created_File)
-- Domain Socket takes a different command line option
-- Domain socket always printed out
-
 - Since you have a section in your documentation on connection with other languages, consider adding the bash/netcat example so that the readers can see how it works.
 - Remove all of the newlines from the json to make it more legible when using nc?
 - Errors returned in embedded mode are sent to the console, not thrown

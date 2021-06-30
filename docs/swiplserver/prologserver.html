@@ -389,7 +389,8 @@ When launch_server is True, None (default) automatically generates a strong pass
 When launch_server is False, must be set to match the password specified in language_server/1 of the running SWI Prolog process.</dd>
 <dt><strong><code>unix_domain_socket</code></strong></dt>
 <dd>
-<p>None (default) use localhost TCP/IP for communication with the SWI Prolog process. Otherwise (only on Unix) is either a fully qualified path and filename of the Unix Domain Socket to use or an empty string (recommended). An empty string will cause a temporary directory and socket file to be generated automatically in "/tmp" that follows the below requirements. If "/tmp" does not exist, <code><a title="swiplserver.prologserver.PrologServer.start" href="#swiplserver.prologserver.PrologServer.start">PrologServer.start()</a></code> with raise an exception. Specifying a file to use should follow the same guidelines as the generated file:</p>
+<p>None (default) use localhost TCP/IP for communication with the SWI Prolog process. Otherwise (only on Unix) is either a fully qualified path and filename of the Unix Domain Socket to use or an empty string (recommended). An empty string will cause a temporary directory to be created using Prolog's <code>tmp_file/2</code> and a socket file will be created within that directory following the below requirements.
+If the directory and file are unable to be created for some reason, <code><a title="swiplserver.prologserver.PrologServer.start" href="#swiplserver.prologserver.PrologServer.start">PrologServer.start()</a></code> with raise an exception. Specifying a file to use should follow the same guidelines as the generated file:</p>
 <ul>
 <li>If the file exists when the server is launched, it will be deleted.</li>
 <li>If the path is not an absolute path, an exception will be thrown.</li>
