@@ -93,8 +93,15 @@ class TestPrologServer(ParametrizedTestCase):
             else:
                 # If the thread was aborted keep trying since it will spuriously appear and then disappear
                 reason = result[0]["PropertyGoal"]
+                # Should be this but - Workaround SWI Prolog bug: https://github.com/SWI-Prolog/swipl-devel/issues/852
+                # Joining crashes Prolog in the way the code joins and so we will have extra threads that have exited reported by thread_property
+                # just treat them as gone
+                # if prolog_name(reason) == "exception" and prolog_args(reason)[0] == "$aborted":
+                #     continue
+                # else:
+                #     return reason
                 if prolog_name(reason) == "exception" and prolog_args(reason)[0] == "$aborted":
-                    continue
+                    return "_"
                 else:
                     return reason
 
@@ -118,7 +125,14 @@ class TestPrologServer(ParametrizedTestCase):
         result = prologThread.query("thread_property(ThreadID, status(Status))")
         testThreads = []
         for item in result:
-            testThreads.append(item["ThreadID"] + ":" + str(item["Status"]))
+            # Should be this but - Workaround SWI Prolog bug: https://github.com/SWI-Prolog/swipl-devel/issues/852
+            # Joining crashes Prolog in the way the code joins and so we will have extra threads that have exited reported by thread_property
+            # just treat them as gone
+            # testThreads.append(item["ThreadID"] + ":" + str(item["Status"]))
+            if prolog_name(item["Status"]) == "exception" and prolog_args(item["Status"])[0] == "$aborted":
+                continue
+            else:
+                testThreads.append(item["ThreadID"] + ":" + str(item["Status"]))
 
         return testThreads
 
@@ -834,11 +848,10 @@ def load_tests(loader, standard_tests, pattern):
     # run_unix_domain_sockets_performance_tests(suite)
 
     # Tests a specific test
-    # suite.addTest(TestPrologServer('test_unix_domain_socket_embedded'))
+    # suite.addTest(TestPrologServer('test_connection_close_with_running_query'))
     # socketPath = os.path.dirname(os.path.realpath(__file__))
-    # suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, test_item_name="test_async_query", launchServer=True,
-    #                                                useUnixDomainSocket=PrologServer.unix_domain_socket_file(socketPath),
-    #                                                serverPort=None, password=None))
+    # suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, test_item_name="test_connection_close_with_running_query", launchServer=False,
+    #                                                serverPort=4242, password="test"))
 
     # Tests a specific test 100 times
     # for index in range(0, 100):
@@ -851,8 +864,6 @@ def load_tests(loader, standard_tests, pattern):
     else:
         socketPath = os.path.dirname(os.path.realpath(__file__))
         suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, launchServer=True, useUnixDomainSocket=PrologServer.unix_domain_socket_file(socketPath), serverPort=None, password=None))
-
-    # suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, launchServer = False, useUnixDomainSocket = None, serverPort= 4242, password= "test"))
 
     return suite
 

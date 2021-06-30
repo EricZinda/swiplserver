@@ -35,3 +35,6 @@ Has been tested with:
 If you're interested in rough performance overhead of the approach this library takes.  On a late 2013 macbook pro the per call overhead of the library for running a Prolog query is about:
 - 170 uSec per call using TCP/IP localhost
 - 145 uSec per call using Unix Domain Sockets
+
+### Known issues
+A [known issue](https://github.com/SWI-Prolog/swipl-devel/issues/852) in SWI Prolog means that server threads from closed connections will leave a record in `thread_property/2` that shows them as exited but `$aborted` inside of Prolog. This is inert. The bug has been fixed in the development branch of Prolog.

@@ -114,7 +114,7 @@ close.
 ~~~
 Note that Unix Domain Sockets can be used instead of a TCP/IP port. How to do this is described in the `language_server/1` Options documentation.
 
-Here's the same example running in the R language:
+Here's the same example running in the R language. Note that this is *not* an example of how to use language_server from R, it just shows the first code a developer would write as they begin to build a nice library to connect R to Prolog using the language_server:
 ~~~
 # Server run with: swipl language_server.pl --port=40001 --password=123
 # R Source
@@ -1122,13 +1122,16 @@ repeat_until_false(_).
 %   where the call might not return for a long time.  Do a timeout for those cases.
 abortSilentExit(Thread_ID, Exception) :-
     catch(thread_signal(Thread_ID, abort), error(Exception, _), true),
-    debug(prologServer(protocol), "Attempting to abort thread: ~w. thread_signal_exception: ~w", [Thread_ID, Exception]),
-    (   once((var(Exception) ; catch(thread_property(Thread_ID, status(exception('$aborted'))), error(_, _), true)))
-    ->  (   catch(call_with_time_limit(4, thread_join(Thread_ID)), error(JoinException1, JoinException2), true),
-            debug(prologServer(protocol), "thread_join attempted because thread: ~w exit was expected, exception: ~w", [Thread_ID, error(JoinException1, JoinException2)])
-        )
-    ;   true
-    ).
+    debug(prologServer(protocol), "Attempting to abort thread: ~w. thread_signal_exception: ~w", [Thread_ID, Exception]).
+% Workaround SWI Prolog bug: https://github.com/SWI-Prolog/swipl-devel/issues/852 by not joining
+% The workaround just stops joining the aborted thread, so an inert record will be left if thread_property/2 is called.
+%    ,
+%    (   once((var(Exception) ; catch(thread_property(Thread_ID, status(exception('$aborted'))), error(_, _), true)))
+%    ->  (   catch(call_with_time_limit(4, thread_join(Thread_ID)), error(JoinException1, JoinException2), true),
+%            debug(prologServer(protocol), "thread_join attempted because thread: ~w exit was expected, exception: ~w", [Thread_ID, error(JoinException1, JoinException2)])
+%        )
+%    ;   true
+%    ).
 
 
 % Detach a thread that exits with true or false so that it doesn't leave around a record in thread_property/2 afterwards
