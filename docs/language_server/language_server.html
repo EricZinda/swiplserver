@@ -86,13 +86,44 @@ The most common way to use the language server is to find a library that wraps a
 <li>Read the SWI Prolog STDOUT to retrieve the TCP/IP port and password. They are sent in that order, delimited by '\n'.</li>
 </ol>
 
+<pre class="code" ext="">
+$ swipl language_server.pl --write_connection_values=true
+54501
+185786669688147744015809740744888120144</pre>
+
 <p>
 Now the server is started. To create a connection:</p>
 
 <ol>
-<li>Use the language's TCP/IP sockets library to open a socket on the specified port of localhost and send the password as a message (the message format is described in the <a href="language_server.html#language_server/1">language_server/1</a> documentation).</li>
+<li>Use the language's TCP/IP sockets library to open a socket on the specified port of localhost and send the password as a message. Messages to and from the server are in the form <code>&lt;stringByteLength&gt;.\n&lt;stringBytes&gt;.\n </code> where <code>stringByteLength</code> includes the <code>.\n</code> from the string. For example: <code>7.\nhello.\n</code> More information on the message format is in the <a href="language_server.html#language_server/1">language_server/1</a> documentation.</li>
 <li>Listen on the socket for a response message of <code>true([[threads(Comm_Thread_ID, Goal_Thread_ID)]])</code> (which will be in JSON form) indicating successful creation of the connection. <var>Comm_Thread_ID</var> and <var>Goal_Thread_ID</var> are the two threads that are used for the connection. They are sent solely for monitoring and debugging purposes.</li>
 </ol>
+
+<p>
+We can test using the Unix tool <code>netcat</code> (also available for windows) to interactively connect to the server. In <code>netcat</code>: hitting enter sends <code>\n</code> and the server responses are recorded inline. I've indented the server responses below to clarify.</p>
+
+<p>
+We'll use the port and password that were sent to STDOUT above:</p>
+
+<pre class="code" ext="">
+$ nc 127.0.0.1 54501
+41.
+185786669688147744015809740744888120144.
+    173.
+    {
+      "args": [
+        [
+          [
+        {
+          "args": ["language_server1_conn2_comm", "language_server1_conn2_goal" ],
+          "functor":"threads"
+        }
+          ]
+        ]
+      ],
+      "functor":"true"
+    }
+</pre>
 
 <p>
 Now the connection is established. To run queries and shutdown:</p>
@@ -104,14 +135,73 @@ Now the connection is established. To run queries and shutdown:</p>
 </ol>
 
 <p>
+Continuing with the <code>netcat</code> session (<code>quit</code> isn't shown since <code>close</code> closes the connection):</p>
+
+<pre class="code" ext="">
+18.
+run(atom(a), -1).
+    39.
+    {"args": [ [ [] ] ], "functor":"true"}
+7.
+close.
+    39.
+    {"args": [ [ [] ] ], "functor":"true"}</pre>
+
+<p>
 Note that Unix Domain Sockets can be used instead of a TCP/IP port. How to do this is described in the <a href="language_server.html#language_server/1">language_server/1</a> Options documentation.</p>
 
 <p>
-The format of messages is described in the documentation for <a href="language_server.html#language_server/1">language_server/1</a>.</p>
+Here's the same example running in the R language</p>
+
+<pre class="code" ext="">
+# Server run with: swipl language_server.pl --port=40001 --password=123
+# R Source
+print("# Establish connection")
+
+sck = make.socket('localhost', 40001)
+
+print("# Send password")
+
+write.socket(sck, '5.\n') # message length
+
+write.socket(sck, '123.\n') # password
+
+print(read.socket(sck))
+
+print("# Run query")
+
+query = 'run(member(X, [1, 2, 3]), -1).\n'
+
+write.socket(sck, paste(nchar(query), '.\n', sep='')) # message length
+
+write.socket(sck, query) # query
+
+print(read.socket(sck))
+
+print("# Close session")
+
+close.socket(sck)</pre>
+
+<p>
+And here's the output:</p>
+
+<pre class="code" ext="">
+[1] "# Establish connection"
+
+[1] "# Send password"
+
+[1] "172.\n{\n "args": [\n [\n [\n\t{\n\t "args": ["language_server1_conn1_comm", "language_server1_conn1_goal" ],\n\t "functor":"threads"\n\t}\n ]\n ]\n ],\n "functor":"true"\n}"
+
+[1] "# Run query"
+
+[1] "188.\n{\n "args": [\n [\n [ {"args": ["X", 1 ], "functor":"="} ],\n [ {"args": ["X", 2 ], "functor":"="} ],\n [ {"args": ["X", 3 ], "functor":"="} ]\n ]\n ],\n "functor":"true"\n}"
+
+[1] "# Close session"</pre>
 
 <p>
 Other notes about creating a new library to communicate with the language server:</p>
 <ul>
+<li>Please use the Python library as a reference when designing your language library and use similar names and approaches where appropriate. This will give familiarity and faster learning for users that use more than one language.</li>
 <li>Use the <a class="builtin" href="http://www.swi-prolog.org/pldoc/man?predicate=debug/1">debug/1</a> predicate described in the <a href="language_server.html#language_server/1">language_server/1</a> documentation to turn on debug tracing. It can really speed up debugging.</li>
 <li>Read the STDOUT and STDERR output of the SWI Prolog process and output them to the debugging console of the native language to help users debug their Prolog application.</li>
 </ul>

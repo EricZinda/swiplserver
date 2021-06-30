@@ -60,10 +60,40 @@ The most common way to use the language server is to find a library that wraps a
      1. Launch the SWI Prolog process using (along with any other options the user requests): =|swipl /<path>/language_server.pl --write_connection_values=true|=.  To work, the `swipl` Prolog executable will need to be on the path or specified in the command. This launches the server and writes the chosen port and password to STDOUT.  This way of launching invokes a (non-exported) predicate called `main/1` that turns off the `int` (i.e. Interrupt/SIGINT) signal to Prolog. This is because some languages (such as Python) use that signal during debugging and it would be otherwise passed to the client Prolog process and switch it into the debugger.  Also note that Options are specified using the =|--<option name>=<value>|= syntax on the command line. =|<value>|= should be surrounded with double quotation marks when it is a value like a password with spaces that could confuse the command line. See documentation for how to format the command line and the other available options in the `language_server/1` Options documentation.
      2. Read the SWI Prolog STDOUT to retrieve the TCP/IP port and password. They are sent in that order, delimited by '\n'.
 
+~~~
+$ swipl language_server.pl --write_connection_values=true
+54501
+185786669688147744015809740744888120144
+~~~
+
     Now the server is started. To create a connection:
 
-     3. Use the language's TCP/IP sockets library to open a socket on the specified port of localhost and send the password as a message (the message format is described in the `language_server/1` documentation).
+     3. Use the language's TCP/IP sockets library to open a socket on the specified port of localhost and send the password as a message. Messages to and from the server are in the form =|<stringByteLength>.\n<stringBytes>.\n |= where `stringByteLength` includes the =|.\n|= from the string. For example: =|7.\nhello.\n|= More information on the message format is in the `language_server/1` documentation.
      4. Listen on the socket for a response message of `true([[threads(Comm_Thread_ID, Goal_Thread_ID)]])` (which will be in JSON form) indicating successful creation of the connection.  `Comm_Thread_ID` and `Goal_Thread_ID` are the two threads that are used for the connection. They are sent solely for monitoring and debugging purposes.
+
+We can test using the Unix tool `netcat` (also available for windows) to interactively connect to the server. In `netcat`: hitting enter sends =|\n|= and the server responses are recorded inline.  I've indented the server responses below to clarify.
+
+We'll use the port and password that were sent to STDOUT above:
+~~~
+$ nc 127.0.0.1 54501
+41.
+185786669688147744015809740744888120144.
+    173.
+    {
+      "args": [
+        [
+          [
+        {
+          "args": ["language_server1_conn2_comm", "language_server1_conn2_goal" ],
+          "functor":"threads"
+        }
+          ]
+        ]
+      ],
+      "functor":"true"
+    }
+
+~~~
 
  Now the connection is established. To run queries and shutdown:
 
@@ -71,11 +101,66 @@ The most common way to use the language server is to find a library that wraps a
      6. Shutting down the connection is accomplished by sending the message `close`, waiting for the response message of `true([[]])` (in JSON form), and then closing the socket using the socket API of the language.  If the socket is closed (or fails) before the `close` message is sent, the default behavior of the server is to exit the SWI Prolog process to avoid leaving the process around.  This is to support scenarios where the user is running and halting their language debugger without cleanly exiting.
      7. Shutting down the launched server is accomplished by sending the `quit` message and waiting for the response message of `true([[]])` (in JSON form). This will cause an orderly shutdown and exit of the process.
 
+Continuing with the `netcat` session (`quit` isn't shown since `close` closes the connection):
+~~~
+18.
+run(atom(a), -1).
+    39.
+    {"args": [ [ [] ] ], "functor":"true"}
+7.
+close.
+    39.
+    {"args": [ [ [] ] ], "functor":"true"}
+~~~
 Note that Unix Domain Sockets can be used instead of a TCP/IP port. How to do this is described in the `language_server/1` Options documentation.
 
-The format of messages is described in the documentation for `language_server/1`.
+Here's the same example running in the R language:
+~~~
+# Server run with: swipl language_server.pl --port=40001 --password=123
+# R Source
+print("# Establish connection")
+
+sck = make.socket('localhost', 40001)
+
+print("# Send password")
+
+write.socket(sck, '5.\n') # message length
+
+write.socket(sck, '123.\n') # password
+
+print(read.socket(sck))
+
+print("# Run query")
+
+query = 'run(member(X, [1, 2, 3]), -1).\n'
+
+write.socket(sck, paste(nchar(query), '.\n', sep='')) # message length
+
+write.socket(sck, query) # query
+
+print(read.socket(sck))
+
+print("# Close session")
+
+close.socket(sck)
+~~~
+And here's the output:
+~~~
+[1] "# Establish connection"
+
+[1] "# Send password"
+
+[1] "172.\n{\n "args": [\n [\n [\n\t{\n\t "args": ["language_server1_conn1_comm", "language_server1_conn1_goal" ],\n\t "functor":"threads"\n\t}\n ]\n ]\n ],\n "functor":"true"\n}"
+
+[1] "# Run query"
+
+[1] "188.\n{\n "args": [\n [\n [ {"args": ["X", 1 ], "functor":"="} ],\n [ {"args": ["X", 2 ], "functor":"="} ],\n [ {"args": ["X", 3 ], "functor":"="} ]\n ]\n ],\n "functor":"true"\n}"
+
+[1] "# Close session"
+~~~
 
 Other notes about creating a new library to communicate with the language server:
+- Please use the Python library as a reference when designing your language library and use similar names and approaches where appropriate. This will give familiarity and faster learning for users that use more than one language.
 - Use the `debug/1` predicate described in the `language_server/1` documentation to turn on debug tracing. It can really speed up debugging.
 - Read the STDOUT and STDERR output of the SWI Prolog process and output them to the debugging console of the native language to help users debug their Prolog application.
 
@@ -485,8 +570,7 @@ send_client_startup_data(Write_Connection_Values, Stream, Unix_Domain_Socket_Pat
 % Listen for connections and create a connection for each in its own communication thread
 % Uses tail recursion to ensure the stack doesn't grow
 server_thread(Server_Thread_ID, Socket, Address, Password, Connection_Count, Encoding, Query_Timeout, Exit_Main_On_Failure) :-
-    stack_level(Level),
-    debug(prologServer(protocol), "Listening on address: ~w, Stack = ~w", [Address, Level]),
+    debug(prologServer(protocol), "Listening on address: ~w", [Address]),
     tcp_listen(Socket, Connection_Count),
     tcp_open_socket(Socket, AcceptFd, _),
     create_connection(Server_Thread_ID, AcceptFd, Password, Encoding, Query_Timeout, Exit_Main_On_Failure),
@@ -525,8 +609,7 @@ goal_thread(Respond_To_Thread_ID) :-
     thread_self(Self_ID),
     throw_if_testing(Self_ID),
     thread_get_message(Self_ID, goal(Goal, Binding_List, Query_Timeout, Find_All)),
-    stack_level(Level),
-    debug(prologServer(query), "Received Stack: ~w, Findall = ~w, Query_Timeout = ~w, binding list: ~w, goal: ~w", [Level, Find_All, Query_Timeout, Binding_List, Goal]),
+    debug(prologServer(query), "Received Findall = ~w, Query_Timeout = ~w, binding list: ~w, goal: ~w", [Find_All, Query_Timeout, Binding_List, Goal]),
     (   Find_All
     ->  One_Answer_Goal = findall(Binding_List, @(Goal, user), Answers)
     ;
@@ -684,8 +767,7 @@ process_language_server_messages(Read_Stream, Write_Stream, Goal_Thread_ID, Quer
 % since errors should be sent to the client
 % It can throw if there are communication failures, though.
 process_language_server_message(Read_Stream, Write_Stream, Goal_Thread_ID, Query_Timeout, Command) :-
-    stack_level(Level),
-    debug(prologServer(protocol), "Waiting for next message (Stack = ~w)...", [Level]),
+    debug(prologServer(protocol), "Waiting for next message ...", []),
     (   state_receive_raw_message(Read_Stream, Message_String)
     ->  (   state_parse_command(Write_Stream, Message_String, Command, Binding_List)
         ->  state_process_command(Write_Stream, Goal_Thread_ID, Query_Timeout, Command, Binding_List)
@@ -1015,17 +1097,14 @@ string_encoding_length(String, Encoding, Length) :-
 
 
 % Convert Prolog Term to a Prolog JSON term
+% Add a final \n so that using netcat to debug works well
 term_to_json_string(Term, Json_String) :-
     term_to_json(Term, Json),
     with_output_to(string(Json_String),
         (   current_output(Stream),
-            json_write(Stream, Json)
+            json_write(Stream, Json),
+            put(Stream, '\n')
         )).
-
-
-% See if the stack is growing by retrieving out the stack bytes
-stack_level(Bytes) :-
-    statistics(localused, Bytes).
 
 
 % Execute the goal as once() without binding any variables
