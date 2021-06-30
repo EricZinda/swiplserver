@@ -9,7 +9,7 @@ import unittest
 import threading
 from time import sleep, perf_counter
 from prologserver import *
-from pathlib import PurePath, PurePosixPath, PureWindowsPath
+from pathlib import PurePath, PurePosixPath, PureWindowsPath, Path
 
 
 # From: https://eli.thegreenplace.net/2011/08/02/python-unit-testing-parametrized-test-cases/
@@ -562,9 +562,9 @@ class TestPrologServer(ParametrizedTestCase):
 
                 # When starting a server, some variables can be filled in with defaults. Also: only the server thread should be created
                 # Launch the new server with appropriate options specified with variables to make sure they get filled in
-                result = monitorThread.query("language_server([port(Port), server_thread(ServerThreadID), password(Password)])")
+                result = monitorThread.query("language_server([port(Port), server_thread(ServerThreadID), password(Password), unix_domain_socket(Unix)])")
                 optionsDict = result[0]
-                assert "Port" in optionsDict and "ServerThreadID" in optionsDict and "Password" in optionsDict
+                assert "Port" in optionsDict and "ServerThreadID" in optionsDict and "Password" in optionsDict and "Unix" in optionsDict
 
                 # Get the new threadlist
                 result = monitorThread.query("thread_property(ThreadID, status(Status))")
@@ -573,7 +573,7 @@ class TestPrologServer(ParametrizedTestCase):
                 # Only a server thread should have been started
                 assert len(testThreads) - len(initialThreads) == 1
 
-                # stop_language_server should remove all (and only) created threads and the Unix Domain File
+                # stop_language_server should remove all (and only) created threads and the Unix Domain File (which is tested on self.tearDown())
                 result = monitorThread.query("stop_language_server({})".format(optionsDict["ServerThreadID"]))
                 sleep(2)
                 afterShutdownThreads = self.thread_list(monitorThread)
@@ -623,8 +623,8 @@ class TestPrologServer(ParametrizedTestCase):
                 afterShutdownThreads = self.thread_list(monitorThread)
                 self.assertEqual(afterShutdownThreads, initialThreads)
 
-                # unixDomainSocket() should be used if supplied (non-windows).
                 if os.name != "nt":
+                    # unixDomainSocket() should be used if supplied (non-windows).
                     socketPath = os.path.dirname(os.path.realpath(__file__))
                     unixDomainSocket = PrologServer.unix_domain_socket_file(socketPath)
                     result = monitorThread.query("language_server([unix_domain_socket('{}'), password(testpassword), server_thread(ServerThreadID)])".format(unixDomainSocket))
@@ -638,6 +638,23 @@ class TestPrologServer(ParametrizedTestCase):
                     afterShutdownThreads = self.thread_list(monitorThread)
                     self.assertEqual(afterShutdownThreads, initialThreads)
                     assert not os.path.exists(unixDomainSocket)
+
+                    # unixDomainSocket() should be generated if asked for (non-windows).
+                    result = monitorThread.query("language_server([unix_domain_socket(Socket), password(testpassword), server_thread(ServerThreadID)])")
+                    serverThreadID = result[0]["ServerThreadID"]
+                    unixDomainSocket = result[0]["Socket"]
+                    with PrologServer(launch_server=False, unix_domain_socket=unixDomainSocket, password="testpassword") as newServer:
+                        with newServer.create_thread() as prologThread:
+                            result = prologThread.query("true")
+                            self.assertEqual(result, True)
+                    result = monitorThread.query("stop_language_server({})".format(serverThreadID))
+                    self.assertEqual(result, True)
+                    afterShutdownThreads = self.thread_list(monitorThread)
+                    self.assertEqual(afterShutdownThreads, initialThreads)
+                    # Temp Socket should not exist
+                    assert not os.path.exists(unixDomainSocket)
+                    # Neither should Temp directory
+                    assert not os.path.exists(Path(unixDomainSocket).parent)
 
                 # runServerOnThread(false) should block until the server is shutdown.
                 # Create a new connection that we block starting a new server
@@ -688,6 +705,13 @@ class TestPrologServer(ParametrizedTestCase):
 
                 # Launching this library itself and stopping in the debugger tests writeConnectionValues() and ignoreSigint and haltOnConnectionFailure internal features automatically
 
+    def test_unix_domain_socket_embedded(self):
+        if os.name != "nt":
+            with PrologServer(launch_server=True, unix_domain_socket="", password="testpassword") as newServer:
+                with newServer.create_thread() as prologThread:
+                    result = prologThread.query("true")
+                    self.assertEqual(result, True)
+
     def test_python_classes(self):
         # Using a thread without starting it should start the server
         with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
@@ -716,6 +740,15 @@ class TestPrologServer(ParametrizedTestCase):
                 exceptionCaught = True
             self.assertTrue(exceptionCaught)
 
+        # Setting port and unix_domain_socket should raise
+        exceptionCaught = False
+        try:
+            with PrologServer(port=4242, unix_domain_socket=""):
+                pass
+        except ValueError:
+            exceptionCaught = True
+        self.assertTrue(exceptionCaught)
+
         # Setting output_file when launch_server is False should raise
         exceptionCaught = False
         try:
@@ -727,7 +760,8 @@ class TestPrologServer(ParametrizedTestCase):
 
     def test_debugging_options(self):
         tempDir = gettempdir()
-        tempFile = os.path.join(tempDir, "swiplserveroutput.txt")
+        # Put a space in to make sure escaping is working
+        tempFile = os.path.join(tempDir, "swiplserver output.txt")
         try:
             os.remove(tempFile)
         except:
@@ -800,9 +834,11 @@ def load_tests(loader, standard_tests, pattern):
     # run_unix_domain_sockets_performance_tests(suite)
 
     # Tests a specific test
-    # suite.addTest(TestPrologServer('test_connection_failure'))
+    # suite.addTest(TestPrologServer('test_unix_domain_socket_embedded'))
     # socketPath = os.path.dirname(os.path.realpath(__file__))
-    # suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, test_item_name = "test_async_query", launchServer = True, useUnixDomainSocket = PrologServer.unix_domain_socket_file(socketPath), serverPort= None, password= None))
+    # suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, test_item_name="test_async_query", launchServer=True,
+    #                                                useUnixDomainSocket=PrologServer.unix_domain_socket_file(socketPath),
+    #                                                serverPort=None, password=None))
 
     # Tests a specific test 100 times
     # for index in range(0, 100):

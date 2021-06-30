@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.9.2" />
 <title>swiplserver.prologserver API documentation</title>
-<meta name="description" content="Allows using SWI Prolog as an embedded part of an application, &#34;like a library&#34;. Tested with SWI-Prolog 8.2.4-1 and Python 3.7.4 …" />
+<meta name="description" content="Allows using SWI Prolog as an embedded part of an application, &#34;like a library&#34; …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,12 +22,12 @@
 <h1 class="title">Module <code>swiplserver.prologserver</code></h1>
 </header>
 <section id="section-intro">
-<p>Allows using SWI Prolog as an embedded part of an application, "like a library". Tested with SWI-Prolog 8.2.4-1 and Python 3.7.4.</p>
-<p><code>swiplserver</code> enables SWI Prolog queries to be executed from within your Python application as if Python had a Prolog engine running inside of it.</p>
+<p>Allows using SWI Prolog as an embedded part of an application, "like a library".</p>
+<p><code>swiplserver</code> enables SWI Prolog queries to be executed from within your Python application as if Python had a Prolog engine running inside of it. Queries are sent as strings like "atom(foo)" and the response is JSON.</p>
 <p><code>swiplserver</code> provides:</p>
 <ul>
 <li>The <code><a title="swiplserver.prologserver.PrologServer" href="#swiplserver.prologserver.PrologServer">PrologServer</a></code> class that automatically manages starting and stopping the SWI Prolog instance(s) and runs the <code>language_server/1</code> predicate which starts a JSON query server.
-This predicate is defined in the <code>language_server.pl</code> Prolog program included with this library.</li>
+This predicate is defined in the <code>language_server.pl</code> Prolog program included with this library. This is all managed automatically.</li>
 <li>The <code><a title="swiplserver.prologserver.PrologThread" href="#swiplserver.prologserver.PrologThread">PrologThread</a></code> class is used to run queries on the created process. Queries are run exactly as they would be if you were interacting with the SWI Prolog "top level" (i.e. the Prolog command line).</li>
 </ul>
 <h2 id="installation">Installation</h2>
@@ -37,7 +37,7 @@ This predicate is defined in the <code>language_server.pl</code> Prolog program 
 <li>From within your python project directory run the tests using "python ./swiplserver/test_prologserver.py" to ensure everything is working correctly.</li>
 </ol>
 <h2 id="usage">Usage</h2>
-<p><code><a title="swiplserver.prologserver.PrologThread" href="#swiplserver.prologserver.PrologThread">PrologThread</a></code> represents a thread in <em>Prolog</em> (not in Python!). A given <code><a title="swiplserver.prologserver.PrologThread" href="#swiplserver.prologserver.PrologThread">PrologThread</a></code> instance will always run queries on the same Prolog thread (i.e. single threaded within Prolog).</p>
+<p><code><a title="swiplserver.prologserver.PrologThread" href="#swiplserver.prologserver.PrologThread">PrologThread</a></code> represents a thread in <em>Prolog</em> (it is not a Python thread!). A given <code><a title="swiplserver.prologserver.PrologThread" href="#swiplserver.prologserver.PrologThread">PrologThread</a></code> instance will always run queries on the same Prolog thread (i.e. single threaded within Prolog).</p>
 <p>To run a query and wait until all results are returned:</p>
 <pre><code>from swiplserver import PrologServer, PrologThread
 
@@ -119,54 +119,54 @@ You'll either need to relaunch between runs or build your application so that it
 </code></dt>
 <dd>
 <div class="desc"><p>Convert a file path in whatever the current OS path format is to be a posix path so Prolog can understand it.</p>
-<p>This is useful for Prolog predicates like <code>consult</code> which need a path to be passed in.</p></div>
+<p>This is useful for Prolog predicates like <code>consult</code> which need a Posix path to be passed in on any platform.</p></div>
 </dd>
 <dt id="swiplserver.prologserver.is_prolog_atom"><code class="name flex">
 <span>def <span class="ident">is_prolog_atom</span></span>(<span>json_term)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>True if json_term is Prolog json representing a Prolog atom.
-See <code><a title="swiplserver.prologserver" href="#swiplserver.prologserver">swiplserver.prologserver</a></code> for documentation on the Prolog json format.</p></div>
+<div class="desc"><p>True if json_term is Prolog JSON representing a Prolog atom.
+See <code><a title="swiplserver.prologserver" href="#swiplserver.prologserver">swiplserver.prologserver</a></code> for documentation on the Prolog JSON format.</p></div>
 </dd>
 <dt id="swiplserver.prologserver.is_prolog_functor"><code class="name flex">
 <span>def <span class="ident">is_prolog_functor</span></span>(<span>json_term)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>True if json_term is Prolog json representing a Prolog functor (i.e. a term with zero or more arguments).
-See <code><a title="swiplserver.prologserver" href="#swiplserver.prologserver">swiplserver.prologserver</a></code> for documentation on the Prolog json format.</p></div>
+<div class="desc"><p>True if json_term is Prolog JSON representing a Prolog functor (i.e. a term with zero or more arguments).
+See <code><a title="swiplserver.prologserver" href="#swiplserver.prologserver">swiplserver.prologserver</a></code> for documentation on the Prolog JSON format.</p></div>
 </dd>
 <dt id="swiplserver.prologserver.is_prolog_list"><code class="name flex">
 <span>def <span class="ident">is_prolog_list</span></span>(<span>json_term)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>True if json_term is Prolog json representing a Prolog list.
-See <code><a title="swiplserver.prologserver" href="#swiplserver.prologserver">swiplserver.prologserver</a></code> for documentation on the Prolog json format.</p></div>
+<div class="desc"><p>True if json_term is Prolog JSON representing a Prolog list.
+See <code><a title="swiplserver.prologserver" href="#swiplserver.prologserver">swiplserver.prologserver</a></code> for documentation on the Prolog JSON format.</p></div>
 </dd>
 <dt id="swiplserver.prologserver.is_prolog_variable"><code class="name flex">
 <span>def <span class="ident">is_prolog_variable</span></span>(<span>json_term)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>True if json_term is Prolog json representing a Prolog variable.
-See <code><a title="swiplserver.prologserver" href="#swiplserver.prologserver">swiplserver.prologserver</a></code> for documentation on the Prolog json format.</p></div>
+<div class="desc"><p>True if json_term is Prolog JSON representing a Prolog variable.
+See <code><a title="swiplserver.prologserver" href="#swiplserver.prologserver">swiplserver.prologserver</a></code> for documentation on the Prolog JSON format.</p></div>
 </dd>
 <dt id="swiplserver.prologserver.json_to_prolog"><code class="name flex">
 <span>def <span class="ident">json_to_prolog</span></span>(<span>json_term)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Convert json_term from the Prolog json format to a string that represents the term in the Prolog language. See <code><a title="swiplserver.prologserver" href="#swiplserver.prologserver">swiplserver.prologserver</a></code> for documentation on the Prolog json format.</p></div>
+<div class="desc"><p>Convert json_term from the Prolog JSON format to a string that represents the term in the Prolog language. See <code><a title="swiplserver.prologserver" href="#swiplserver.prologserver">swiplserver.prologserver</a></code> for documentation on the Prolog JSON format.</p></div>
 </dd>
 <dt id="swiplserver.prologserver.prolog_args"><code class="name flex">
 <span>def <span class="ident">prolog_args</span></span>(<span>json_term)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Return the arguments from json_term if json_term is in the Prolog json format. See <code><a title="swiplserver.prologserver" href="#swiplserver.prologserver">swiplserver.prologserver</a></code> for documentation on the Prolog json format.</p></div>
+<div class="desc"><p>Return the arguments from json_term if json_term is in the Prolog JSON format. See <code><a title="swiplserver.prologserver" href="#swiplserver.prologserver">swiplserver.prologserver</a></code> for documentation on the Prolog JSON format.</p></div>
 </dd>
 <dt id="swiplserver.prologserver.prolog_name"><code class="name flex">
 <span>def <span class="ident">prolog_name</span></span>(<span>json_term)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Return the atom (if json_term is an atom), variable (if a variable) or functor name of json_term.
-json_term must be in the Prolog json format. See <code><a title="swiplserver.prologserver" href="#swiplserver.prologserver">swiplserver.prologserver</a></code> for documentation on the Prolog json format.</p></div>
+json_term must be in the Prolog JSON format. See <code><a title="swiplserver.prologserver" href="#swiplserver.prologserver">swiplserver.prologserver</a></code> for documentation on the Prolog JSON format.</p></div>
 </dd>
 <dt id="swiplserver.prologserver.quote_prolog_identifier"><code class="name flex">
 <span>def <span class="ident">quote_prolog_identifier</span></span>(<span>identifier: str)</span>
@@ -362,22 +362,22 @@ json_term must be in the Prolog json format. See <code><a title="swiplserver.pro
 <div class="desc"><p>Initialize a PrologServer class that manages a SWI Prolog process associated with your application process. <code><a title="swiplserver.prologserver.PrologServer.start" href="#swiplserver.prologserver.PrologServer.start">PrologServer.start()</a></code> actually launches the process if launch_server is True.</p>
 <p>This class is designed to allow Prolog to be used "like a normal Python library" &ndash; not as a central server that multiple applications connect to. Thus, all communication is done using protocols that only work on the same machine as your application (localhost TCP/IP or Unix Domain Sockets), and the implementation is designed to make sure the process doesn't hang around even if the application is terminated unexpectedly (as with halting a debugger).</p>
 <p>All arguments are optional and the defaults are set to the recommended settings that work best on all platforms during development. In production on Unix systems, consider using unix_domain_socket to further decrease security attack surface area.</p>
-<p>For debugging scenarios, SWI Prolog can be launched manually and this class can be configured to (locally) connect to it using launch_server = False. This allows for inspection of the server state and using the SWI Prolog debugging tools while your application is running. See the documentation for the Prolog <code>language_server/1</code> predicate for more information on how to run the language server in this mode.</p>
+<p>For debugging scenarios, SWI Prolog can be launched manually and this class can be configured to (locally) connect to it using launch_server = False. This allows for inspection of the server state and using the SWI Prolog debugging tools while your application is running. See the documentation for the Prolog <code>language_server/1</code> predicate for more information on how to run the language server in "Standalone Mode".</p>
 <h2 id="examples">Examples</h2>
 <p>To automatically launch a SWI Prolog process using TCP/IP localhost to communicate with an automatically chosen port and password (the default):</p>
 <pre><code>with PrologServer() as server:
     # your code here
 </code></pre>
-<p>To connect to an existing SWI Prolog process that has already started the language_server/1 predicate and is using the Unix Domain Socket '/temp/mysocket' and a password of '8UIDSSDXLPOI':</p>
+<p>To connect to an existing SWI Prolog process that has already started the language_server/1 predicate and is using an automatically generated Unix Domain Socket and a password of '8UIDSSDXLPOI':</p>
 <pre><code>with PrologServer(launch_server = False,
-                  unix_domain_socket = '/temp/mysocket',
+                  unix_domain_socket = '',
                   password = '8UIDSSDXLPOI') as server:
     # your code here
 </code></pre>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>launch_server</code></strong></dt>
-<dd>True (default) launch a SWI Prolog process on <code><a title="swiplserver.prologserver.PrologServer.start" href="#swiplserver.prologserver.PrologServer.start">PrologServer.start()</a></code> and shuts it down automatically on <code><a title="swiplserver.prologserver.PrologServer.stop" href="#swiplserver.prologserver.PrologServer.stop">PrologServer.stop()</a></code> (or after a resource manager like the Python "with" statement exits). False connects to an existing SWI Prolog process that is running the language_server/1 predicate. When False, password and one of port or unix_domain_socket must be specified to match the options provided to <code>language_server/1</code> in the separate SWI Prolog process.</dd>
+<dd>True (default) launch a SWI Prolog process on <code><a title="swiplserver.prologserver.PrologServer.start" href="#swiplserver.prologserver.PrologServer.start">PrologServer.start()</a></code> and shuts it down automatically on <code><a title="swiplserver.prologserver.PrologServer.stop" href="#swiplserver.prologserver.PrologServer.stop">PrologServer.stop()</a></code> (or after a resource manager like the Python "with" statement exits). False connects to an existing SWI Prolog process that is running the language_server/1 predicate (i.e. "Standalone Mode"). When False, password and one of port or unix_domain_socket must be specified to match the options provided to <code>language_server/1</code> in the separate SWI Prolog process.</dd>
 <dt><strong><code>port</code></strong></dt>
 <dd>The TCP/IP localhost port to use for communication with the SWI Prolog process. Ignored if unix_domain_socket is not None.
 When launch_server is True, None (default) automatically picks an open port that the server and this class both use.
@@ -389,18 +389,20 @@ When launch_server is True, None (default) automatically generates a strong pass
 When launch_server is False, must be set to match the password specified in language_server/1 of the running SWI Prolog process.</dd>
 <dt><strong><code>unix_domain_socket</code></strong></dt>
 <dd>
-<p>None (default) use localhost TCP/IP for communication with the SWI Prolog process. Otherwise (only on Unix) is the fully qualified path and filename of the Unix Domain Socket to use. If the file exists when the server is launched, it will be deleted. Some considerations when choosing the value to use:</p>
+<p>None (default) use localhost TCP/IP for communication with the SWI Prolog process. Otherwise (only on Unix) is either a fully qualified path and filename of the Unix Domain Socket to use or an empty string (recommended). An empty string will cause a temporary directory and socket file to be generated automatically in "/tmp" that follows the below requirements. If "/tmp" does not exist, <code><a title="swiplserver.prologserver.PrologServer.start" href="#swiplserver.prologserver.PrologServer.start">PrologServer.start()</a></code> with raise an exception. Specifying a file to use should follow the same guidelines as the generated file:</p>
 <ul>
-<li>The directory containing the file must grant the user (and ideally only that user) running the application the ability to create and delete files created within it.</li>
-<li>For security reasons, the filename should not be predictable.</li>
+<li>If the file exists when the server is launched, it will be deleted.</li>
+<li>If the path is not an absolute path, an exception will be thrown.</li>
+<li>The Prolog process will attempt to create and, if Prolog exits cleanly, delete this file when the server closes.
+This means the directory must have the appropriate permissions to allow the Prolog process to do so.</li>
+<li>For security reasons, the filename should not be predictable and the directory it is contained in should have permissions set so that files created are only accessible to the current user.</li>
 <li>The path must be below 92 <em>bytes</em> long (including null terminator) to be portable according to the Linux documentation.</li>
-<li>If neither the Python process or the Prolog process exit cleanly (e.g. they are killed by the debugger) the socket file will be left on disk.</li>
 </ul>
 </dd>
 <dt><strong><code>query_timeout_seconds</code></strong></dt>
 <dd>None (default) set the default timeout for all queries to be infinite (this can be changed on a per query basis). Other values set the default timeout in seconds.</dd>
 <dt><strong><code>pending_connection_count</code></strong></dt>
-<dd>Set the default number of pending connections allowed on the server. Since the server is only connected to by your application and is not a server, this value should probably never be changed unless your application is creating new PrologThread objects at a very high rate.
+<dd>Set the default number of pending connections allowed on the server. Since the server is only connected to by your application and is not a server, this value should probably never be changed unless your application is creating new <code><a title="swiplserver.prologserver.PrologThread" href="#swiplserver.prologserver.PrologThread">PrologThread</a></code> objects at a very high rate.
 When launch_server is True, None uses the default (5) and other values set the count.
 When launch_server is False, ignored.</dd>
 <dt><strong><code>output_file_name</code></strong></dt>
@@ -458,13 +460,13 @@ For example: choosing Unix Domain Sockets on Windows or setting output_file with
 <dd>
 <div class="desc"><p>Retrieve the operating system process id of the SWI Prolog process that was launched by this class.</p>
 <h2 id="returns">Returns</h2>
-<p>None if the value of launch_server passed to <code><a title="swiplserver.prologserver.PrologServer" href="#swiplserver.prologserver.PrologServer">PrologServer</a></code> is False or if <code><a title="swiplserver.prologserver.PrologServer.start" href="#swiplserver.prologserver.PrologServer.start">PrologServer.start()</a></code> has not yet been called. Otherwise return the operating system process id.</p></div>
+<p>None if the value of launch_server passed to <code><a title="swiplserver.prologserver.PrologServer" href="#swiplserver.prologserver.PrologServer">PrologServer</a></code> is False or if <code><a title="swiplserver.prologserver.PrologServer.start" href="#swiplserver.prologserver.PrologServer.start">PrologServer.start()</a></code> has not yet been called. Otherwise return the operating system process ID.</p></div>
 </dd>
 <dt id="swiplserver.prologserver.PrologServer.start"><code class="name flex">
 <span>def <span class="ident">start</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Start a new SWI Prolog process associated with this class using the settings from <code><a title="swiplserver.prologserver.PrologServer" href="#swiplserver.prologserver.PrologServer">PrologServer</a></code>. If launch_server is False, does nothing..</p>
+<div class="desc"><p>Start a new SWI Prolog process associated with this class using the settings from <code><a title="swiplserver.prologserver.PrologServer" href="#swiplserver.prologserver.PrologServer">PrologServer</a></code>. If launch_server is False, does nothing.</p>
 <p>To create the SWI Prolog process, 'swipl' must be on the system path. Manages the lifetime of the process it creates, ending it on <code><a title="swiplserver.prologserver.PrologServer.stop" href="#swiplserver.prologserver.PrologServer.stop">PrologServer.stop()</a></code>.</p>
 <h2 id="raises">Raises</h2>
 <dl>
@@ -520,14 +522,14 @@ prolog_thread.start()
 </code></dt>
 <dd>
 <div class="desc"><p>Attempt to cancel a query started with <code><a title="swiplserver.prologserver.PrologThread.query_async" href="#swiplserver.prologserver.PrologThread.query_async">PrologThread.query_async()</a></code> in a way that allows further queries to be run on this <code><a title="swiplserver.prologserver.PrologThread" href="#swiplserver.prologserver.PrologThread">PrologThread</a></code> afterwards.</p>
-<p>If there is a query running, injects a Prolog <code>throw(cancel_goal)</code> into the thread the query is running on. Does not inject Prolog <code>abort/0</code> because this would kill the thread and we want to keep the thread alive for future queries.
+<p>If there is a query running, injects a Prolog <code>throw(cancel_goal)</code> into the query's thread. Does not inject Prolog <code>abort/0</code> because this would kill the thread and we want to keep the thread alive for future queries.
 This means it is a "best effort" cancel since the exception can be caught by your Prolog code. <code>cancel_query_async()</code> is guaranteed to either raise an exception (if there is no query or pending results from the last query), or safely attempt to stop the last executed query.</p>
 <p>To guaranteed that a query is cancelled, call <code><a title="swiplserver.prologserver.PrologThread.stop" href="#swiplserver.prologserver.PrologThread.stop">PrologThread.stop()</a></code> instead.</p>
 <p>It is not necessary to determine the outcome of <code>cancel_query_async()</code> after calling it. Further queries can be immediately run after calling <code>cancel_query_async()</code>. They will be run after the current query stops for whatever reason.</p>
 <p>If you do need to determine the outcome or determine when the query stops, call <code>PrologThread.query_async_result(wait_timeout_seconds = 0)</code>. Using <code>wait_timeout_seconds = 0</code> is recommended since the query might have caught the exception or still be running.
 Calling <code><a title="swiplserver.prologserver.PrologThread.query_async_result" href="#swiplserver.prologserver.PrologThread.query_async_result">PrologThread.query_async_result()</a></code> will return the "natural" result of the goal's execution. The "natural" result depends on the particulars of what the code actually did. The return value could be one of:</p>
 <ul>
-<li>Raise <code><a title="swiplserver.prologserver.PrologQueryCancelledError" href="#swiplserver.prologserver.PrologQueryCancelledError">PrologQueryCancelledError</a></code> if the goal was running and did not catch the exception. I.e. the goal was cancelled.</li>
+<li>Raise <code><a title="swiplserver.prologserver.PrologQueryCancelledError" href="#swiplserver.prologserver.PrologQueryCancelledError">PrologQueryCancelledError</a></code> if the goal was running and did not catch the exception. I.e. the goal was successfully cancelled.</li>
 <li>Raise <code><a title="swiplserver.prologserver.PrologQueryTimeoutError" href="#swiplserver.prologserver.PrologQueryTimeoutError">PrologQueryTimeoutError</a></code> if the query timed out before getting cancelled.</li>
 <li>Raise <code><a title="swiplserver.prologserver.PrologError" href="#swiplserver.prologserver.PrologError">PrologError</a></code> (i.e. an arbitrary exception) if query hits another exception before it has a chance to be cancelled.</li>
 <li>A valid answer if the query finished before being cancelled.</li>
@@ -552,8 +554,7 @@ Calling <code><a title="swiplserver.prologserver.PrologThread.query_async_result
 <dd>
 <div class="desc"><p>Run a Prolog query and wait to return all results (as if run using Prolog <code>findall/3</code>) or optionally time out.</p>
 <p>Calls <code><a title="swiplserver.prologserver.PrologServer.start" href="#swiplserver.prologserver.PrologServer.start">PrologServer.start()</a></code> and <code><a title="swiplserver.prologserver.PrologThread.start" href="#swiplserver.prologserver.PrologThread.start">PrologThread.start()</a></code> if either is not already started.</p>
-<p>The query is run on the same Prolog thread every time, emulating the Prolog top level. Other than using a timeout, closing the connection is the only way to cancel the goal.
-To run a cancellable goal that keeps the thread alive, use <code><a title="swiplserver.prologserver.PrologThread.query_async" href="#swiplserver.prologserver.PrologThread.query_async">PrologThread.query_async()</a></code>.</p>
+<p>The query is run on the same Prolog thread every time, emulating the Prolog top level. There is no way to cancel the goal using this method, so using a timeout is recommended. To run a cancellable goal, use <code><a title="swiplserver.prologserver.PrologThread.query_async" href="#swiplserver.prologserver.PrologThread.query_async">PrologThread.query_async()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
@@ -563,8 +564,8 @@ To run a cancellable goal that keeps the thread alive, use <code><a title="swipl
 </dl>
 <h2 id="raises">Raises</h2>
 <p><code><a title="swiplserver.prologserver.PrologQueryTimeoutError" href="#swiplserver.prologserver.PrologQueryTimeoutError">PrologQueryTimeoutError</a></code> if the query timed out.</p>
-<p><code><a title="swiplserver.prologserver.PrologConnectionFailedError" href="#swiplserver.prologserver.PrologConnectionFailedError">PrologConnectionFailedError</a></code> if the query thread has unexpectedly exited. The server will no longer be listening after this exception.</p>
 <p><code><a title="swiplserver.prologserver.PrologError" href="#swiplserver.prologserver.PrologError">PrologError</a></code> for all other exceptions that occurred when running the query in Prolog.</p>
+<p><code><a title="swiplserver.prologserver.PrologConnectionFailedError" href="#swiplserver.prologserver.PrologConnectionFailedError">PrologConnectionFailedError</a></code> if the query thread has unexpectedly exited. The server will no longer be listening after this exception.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>False</code></dt>
@@ -593,13 +594,13 @@ To run a cancellable goal that keeps the thread alive, use <code><a title="swipl
 <dt><strong><code>value</code></strong></dt>
 <dd>A Prolog query to execute as a string, just like you would run on the Prolog top level. e.g. <code>"member(X, [1, 2]), X = 2"</code>.</dd>
 <dt><strong><code>find_all</code></strong></dt>
-<dd><code>True</code> (default) will run the query using Prolog's <code>findall/3</code> to return a single answer when <code><a title="swiplserver.prologserver.PrologThread.query_async_result" href="#swiplserver.prologserver.PrologThread.query_async_result">PrologThread.query_async_result()</a></code> is called. <code>False</code> will return one answer per <code><a title="swiplserver.prologserver.PrologThread.query_async_result" href="#swiplserver.prologserver.PrologThread.query_async_result">PrologThread.query_async_result()</a></code> call.</dd>
+<dd><code>True</code> (default) will run the query using Prolog's <code>findall/3</code> to return all answers with one call to <code><a title="swiplserver.prologserver.PrologThread.query_async_result" href="#swiplserver.prologserver.PrologThread.query_async_result">PrologThread.query_async_result()</a></code>. <code>False</code> will return one answer per <code><a title="swiplserver.prologserver.PrologThread.query_async_result" href="#swiplserver.prologserver.PrologThread.query_async_result">PrologThread.query_async_result()</a></code> call.</dd>
 <dt><strong><code>query_timeout_seconds</code></strong></dt>
 <dd><code>None</code> uses the <code>query_timeout_seconds</code> set in the <code>prolog_server</code> object passed to <code><a title="swiplserver.prologserver.PrologThread" href="#swiplserver.prologserver.PrologThread">PrologThread</a></code>.</dd>
 </dl>
 <h2 id="raises">Raises</h2>
-<p><code><a title="swiplserver.prologserver.PrologConnectionFailedError" href="#swiplserver.prologserver.PrologConnectionFailedError">PrologConnectionFailedError</a></code> if the query thread has unexpectedly exited. The server will no longer be listening after this exception.</p>
 <p><code><a title="swiplserver.prologserver.PrologError" href="#swiplserver.prologserver.PrologError">PrologError</a></code> if an exception occurs in Prolog when parsing the goal.</p>
+<p><code><a title="swiplserver.prologserver.PrologConnectionFailedError" href="#swiplserver.prologserver.PrologConnectionFailedError">PrologConnectionFailedError</a></code> if the query thread has unexpectedly exited. The server will no longer be listening after this exception.</p>
 <p>Any exception that happens when running the query is raised when calling <code><a title="swiplserver.prologserver.PrologThread.query_async_result" href="#swiplserver.prologserver.PrologThread.query_async_result">PrologThread.query_async_result()</a></code></p>
 <h2 id="returns">Returns</h2>
 <p><code>True</code></p></div>

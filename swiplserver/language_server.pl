@@ -14,9 +14,9 @@
 The SWI Prolog Language Server is designed to enable "embedding" SWI Prolog into just about any programming language (Python, Go, C#, etc) in a straightforward way. It is designed for scenarios that need to use SWI Prolog as a local implementation detail of another language. Think of it as running SWI Prolog "like a library". It can support any programming language that can launch processes, read their STDOUT pipe, and send and receive JSON over TCP/IP. A Python 3.x library is provided.
 
 Key features of the server:
-    - Simulates a familiar Prolog "top level" (i.e. the interactive prompt you get when running Prolog: "?-").
+    - Simulates the familiar Prolog "top level" (i.e. the interactive prompt you get when running Prolog: "?-").
     - Always runs queries from a connection on a consistent, single thread for that connection. The application itself can still be multi-threaded by running queries that use the multi-threading Prolog predicates or by opening more than one connection.
-    - Runs as a separate dedicated *local* Prolog process to simplify integration (vs. using the C-level SWI Prolog interface). The process is launched and managed by a specific running client (e.g. Python) program.
+    - Runs as a separate dedicated *local* Prolog process to simplify integration (vs. using the C-level SWI Prolog interface). The process is launched and managed by a specific running client (e.g. Python or other language) program.
     - Communicates using sockets and JSON encoded as UTF-8 to allow it to work on any platform supported by SWI Prolog. For security reasons, only listens on TCP/IP localhost or Unix Domain Sockets and requires (or generates depending on the options) a password to open a connection.
     - Has a lightweight text-based message format with only 6 commands: run synchronous query, run asynchronous query, retrieve asynchronous results, cancel asynchronous query, close connection and terminate the session.
     - Communicates answers using JSON, a well-known data format supported by most languages natively or with generally available libraries.
@@ -42,7 +42,7 @@ For #3, your application will need to have permission to launch the SWI Prolog p
 
 ## Prolog Language Differences from the Top Level
 
-The language server is designed to act like using the "top level" prompt of SWI Prolog itself (i.e. the "?-" prompt).  If you've built the Prolog part of your application by loading code, running it and debugging it using the normal SWI Prolog top level, integrating it with your native language should be straightforward: simply run the commands you'd normally run on the top level, but now run them using the query APIs provided by the library. Those APIs will allow you to send the exact same text to Prolog and they should execute the same way.
+The language server is designed to act like using the "top level" prompt of SWI Prolog itself (i.e. the "?-" prompt).  If you've built the Prolog part of your application by loading code, running it and debugging it using the normal SWI Prolog top level, integrating it with your native language should be straightforward: simply run the commands you'd normally run on the top level, but now run them using the query APIs provided by the library built for your target language. Those APIs will allow you to send the exact same text to Prolog and they should execute the same way.
 
 While the query functionality of the language server does run on a thread, it will always be the *same* thread, and, if you use a single connection, it will only allow queries to be run one at a time, just like the top level. Of course, the queries you send can launch threads, just like the top level, so you are not limited to a single threaded application. There are a few differences from the top level, however:
 
@@ -53,23 +53,25 @@ While the query functionality of the language server does run on a thread, it wi
 The basic rule to remember is: any predicates designed to interact with or change the default behavior of the top level itself probably won't have any effect.
 
 
-## Embedding the Language Server Into a New Programming Language
+## Embedded Mode: Integrating the Language Server Into a New Programming Language
 The most common way to use the language server is to find a library that wraps and exposes it as a native part of another programming language such as Python. This section describes how to build one if there isn't yet a library for your language.  To do this, you'll need to familiarize yourself with the server protocol as described in the `language_server/1` documentation. However, to give an idea of the scope of work required, below is a typical interaction done (invisibly to the user) in the implementation of any programming language library:
 
 
-     1. Launch the SWI Prolog process using (along with any other options the user requests): `swipl /<path>/language_server.pl --write_connection_values=true`.  To work, the `swipl` Prolog executable will need to be on the path or specified in the command. This launches the server and writes the chosen port and password to STDOUT.  This way of launching invokes a (non-exported) predicate called `main/1` that turns off the `int` (i.e. Interrupt/SIGINT) signal to Prolog. This is because some languages (such as Python) use that signal during debugging and it would be otherwise passed to the client Prolog process and switch it into the debugger.  Also note that Options are specified using the `--<option name>=<value>` syntax on the command line. `<value>` should be surrounded with double quotation marks when it is a string value (like password) that could confuse the command line. See documentation for other options in the `language_server/1` documentation.
+     1. Launch the SWI Prolog process using (along with any other options the user requests): =|swipl /<path>/language_server.pl --write_connection_values=true|=.  To work, the `swipl` Prolog executable will need to be on the path or specified in the command. This launches the server and writes the chosen port and password to STDOUT.  This way of launching invokes a (non-exported) predicate called `main/1` that turns off the `int` (i.e. Interrupt/SIGINT) signal to Prolog. This is because some languages (such as Python) use that signal during debugging and it would be otherwise passed to the client Prolog process and switch it into the debugger.  Also note that Options are specified using the =|--<option name>=<value>|= syntax on the command line. =|<value>|= should be surrounded with double quotation marks when it is a value like a password with spaces that could confuse the command line. See documentation for how to format the command line and the other available options in the `language_server/1` Options documentation.
      2. Read the SWI Prolog STDOUT to retrieve the TCP/IP port and password. They are sent in that order, delimited by '\n'.
 
     Now the server is started. To create a connection:
 
-     3. Use the language's TCP/IP sockets library to open a socket on the specified port of localhost (or on the specified Unix Domain Socket) and send the password as a message (the message format is described  in the `language_server/1` documentation).
-     4. Listen on the socket for a response message of `true([[threads(Comm_Thread_ID, Goal_Thread_ID)]])` indicating successful creation of the connection.  `Comm_Thread_ID` and `Goal_Thread_ID` are the two threads that are used for the connection. They are sent solely for monitoring and debugging purposes.
+     3. Use the language's TCP/IP sockets library to open a socket on the specified port of localhost and send the password as a message (the message format is described in the `language_server/1` documentation).
+     4. Listen on the socket for a response message of `true([[threads(Comm_Thread_ID, Goal_Thread_ID)]])` (which will be in JSON form) indicating successful creation of the connection.  `Comm_Thread_ID` and `Goal_Thread_ID` are the two threads that are used for the connection. They are sent solely for monitoring and debugging purposes.
 
  Now the connection is established. To run queries and shutdown:
 
-     5. Any of the messages described in the `language_server/1` documentation can now be sent to run queries and retrieve their answers. For example, send the message `run(atom(a), -1)` to run the synchronous query `atom(a)` with no timeout and wait for the response message. It will be `true([[]])`.
-     6. Shutting down the connection is accomplished by sending the message `close`, waiting for the response message of `true([[]])`, and then closing the socket using the socket API of the language.  If the socket is closed (or fails) before the `close` message is sent, the default behavior of the server is to exit the SWI Prolog process to avoid leaving the process around.  This is to support scenarios where the user is running and halting their language debugger without cleanly exiting.
-     7. Shutting down the launched server is accomplished by sending the `quit` message and waiting for the response message of `true([[]])`. This will cause an orderly shutdown and exit of the process.
+     5. Any of the messages described in the `language_server/1` documentation can now be sent to run queries and retrieve their answers. For example, send the message `run(atom(a), -1)` to run the synchronous query `atom(a)` with no timeout and wait for the response message. It will be `true([[]])` (in JSON form).
+     6. Shutting down the connection is accomplished by sending the message `close`, waiting for the response message of `true([[]])` (in JSON form), and then closing the socket using the socket API of the language.  If the socket is closed (or fails) before the `close` message is sent, the default behavior of the server is to exit the SWI Prolog process to avoid leaving the process around.  This is to support scenarios where the user is running and halting their language debugger without cleanly exiting.
+     7. Shutting down the launched server is accomplished by sending the `quit` message and waiting for the response message of `true([[]])` (in JSON form). This will cause an orderly shutdown and exit of the process.
+
+Note that Unix Domain Sockets can be used instead of a TCP/IP port. How to do this is described in the `language_server/1` Options documentation.
 
 The format of messages is described in the documentation for `language_server/1`.
 
@@ -80,14 +82,14 @@ Other notes about creating a new library to communicate with the language server
 ## Standalone Mode: Debugging Prolog Code Used in an Application
 When using the language server from another language, debugging the Prolog code itself can often be done by viewing traces from the Prolog native `writeln/1` or `debug/3` predicates and viewing their output in the debugger of the native language used.  Sometimes an issue occurs deep in an application and a way to run the application in the native language while setting breakpoints and viewing traces in Prolog itself is the best approach. Standalone mode is designed for this scenario.
 
-As the language server is a multithreaded application, debugging the running code requires using the multithreaded debugging features of SWI Prolog as described in the section on "Debugging Threads" in the SWI Prolog documentation. A typical flow for standalone mode is:
+As the language server is a multithreaded application, debugging the running code requires using the multithreaded debugging features of SWI Prolog as described in the section on "Debugging Threads" in the SWI Prolog documentation. A typical flow for Standalone Mode is:
 
     1. Launch SWI Prolog and call the `language_server/1` predicate specifying a port and password. Use the `tdebug/0` predicate to set all threads to debugging mode like this: `tdebug, language_server(port(4242), password(debugnow))`.
     2. Set the port and password in the initialization API in the native language being used.
     3. Launch the application and go through the steps to reproduce the issue.
 
 
-At this point, all of the multi-threaded debugging tools in SWI Prolog are available for debugging the problem. If the issue is an unhandled or unexpected exception, the exception debugging features of SWI Prolog can be used to break on the exception and examine the state of the application.  If it is a logic error, breakpoints can be set to halt at the point where the problem appears, etc.
+At this point, all of the multi-threaded debugging tools in SWI Prolog are available for debugging the problem. If the issue is an unexpected exception, the exception debugging features of SWI Prolog can be used to break on the exception and examine the state of the application.  If it is a logic error, breakpoints can be set to halt at the point where the problem appears, etc.
 
 Note that, while using a library to access Prolog will normally end and restart the process between runs of the code, running the server standalone doesn't clear state between launches of the application.  You'll either need to relaunch between runs or build your application so that it does the initialization at startup.
 */
@@ -99,33 +101,47 @@ Starts a Prolog language server using Options. The server is normally started au
 
 Once started, the server listens for TCP/IP or Unix Domain Socket connections and authenticates them using the password provided (or generated) before processing any messages.  The messages processed by the server are described below.
 
-For debugging, the server outputs traces using the `debug/3` predicate so that the server operation can be observed by using the `debug/1` predicate before starting it. Run the following commands to see them:
+For debugging, the server outputs traces using the `debug/3` predicate so that the server operation can be observed by using the `debug/1` predicate. Run the following commands to see them:
 
 - `debug(prologServer(protocol))`: Traces protocol messages to show the flow of commands and connections.  It is designed to avoid filling the screen with large queries and results to make it easier to read.
 - `debug(prologServer(query))`: Traces messages that involve each query and its results. Therefore it can be quite verbose depending on the query.
 
 ## Options
-Options is a list containing any combination of the following options:
-
-- unix_domain_socket(+Unix_Domain_Socket_Path_And_File)
-If set, Unix Domain Sockets will be used as the way to communicate with the server. `Unix_Domain_Socket_Path_And_File` specifies the fully qualified path and filename to use for the socket.
-    - If the path is not an absolute path, an exception will be thrown.
-    - If the file exists when the server starts it will be deleted.
-    - The Prolog process will attempt to create and, if Prolog exits cleanly, delete this file when the server closes.  This means the directory must have the appropriate permissions to allow the Prolog process to do so.
-    - For security reasons, the filename should not be predictable and the directory it is contained in should have permissions set so that files created are only accessible to the current user.
-    - The path must be below 92 *bytes* long (including null terminator) to be portable according to the Linux documentation
+Options is a list containing any combination of the following options. When used in the Prolog top level (i.e. in Standalone Mode), these are specified as normal Prolog options like this:
+~~~
+language_server([unix_domain_socket(Socket), password('a password')])
+~~~
+When using Embedded mode (i.e. launching the server from the command line when integrating into another language) they are passed using the same name but as normal command line arguments like this:
+~~~
+swipl /<path>/language_server.pl --write_connection_values=true --password="a password" --create_unix_domain_socket=true
+~~~
+Note the use of quotes around values that could confuse command line processing like spaces (e.g. "a password") and that `unix_domain_socket(Variable)` is written as =|--create_unix_domain_socket=true|= on the command line. See below for more information.
 
 - port(?Port)
-The TCP/IP socket port to bind to on localhost. This option is ignored if the `unix_domain_socket/1` option is set. Port is either a legal TCP/IP port number (integer) or a term `Port`. The port may be a variable, causing the system to select a free port and unify the variable with the selected port as in `tcp_bind/2`. If the option `write_connection_values(true)` is set, the selected port is output to STDOUT followed by `\n` on startup to allow the client language library to retrieve it.
+The TCP/IP port to bind to on localhost. This option is ignored if the `unix_domain_socket/1` option is set. Port is either a legal TCP/IP port number (integer) or a variable term like `Port`. If it is a variable, it causes the system to select a free port and unify the variable with the selected port as in `tcp_bind/2`. If the option `write_connection_values(true)` is set, the selected port is output to STDOUT followed by `\n` on startup to allow the client language library to retrieve it in Embedded Mode.
+
+- unix_domain_socket(?Unix_Domain_Socket_Path_And_File)
+If set, Unix Domain Sockets will be used as the way to communicate with the server. `Unix_Domain_Socket_Path_And_File` specifies the fully qualified path and filename to use for the socket.
+
+To have one generated instead (recommended), pass `Unix_Domain_Socket_Path_And_File` as a variable when calling from the Prolog top level and the variable will be unified with a created filename. If launching in Embedded Mode (as described in the section on "Embedded Mode"), instead pass =|--create_unix_domain_socket=true|= since there isn't a way to specify variables from the command line. When generating the file, a temporary directory and socket file will be created automatically in "/tmp" following the below requirements.  If "/tmp" does not exist, language_server/1 fails.
+
+Regardless of whether the file is specified or generated, if the option `write_connection_values(true)` is set, the fully qualified path to the generated file is output to STDOUT followed by `\n` on startup to allow the client language library to retrieve it.
+
+Specifying a file to use should follow the same guidelines as the generated file:
+    - If the file exists when the server is launched, it will be deleted.
+    - If the path is not an absolute path, an exception will be thrown.
+    - The Prolog process will attempt to create and, if Prolog exits cleanly, delete this file (and directory if it was created) when the server closes.  This means the directory from a specified file must have the appropriate permissions to allow the Prolog process to do so.
+    - For security reasons, the filename should not be predictable and the directory it is contained in should have permissions set so that files created are only accessible to the current user.
+    - The path must be below 92 *bytes* long (including null terminator) to be portable according to the Linux documentation.
 
 - password(?Password)
-The password required for a connection. If not specified (recommended), the server will generate one as a Prolog string type since Prolog atoms are globally visible. Be sure to not convert to an atom for this reason.  If the option `write_connection_values(true)` is set, the password is output to STDOUT followed by `\n` on startup to allow the client language library to retrieve it. This is the recommended way to integrate the server with a language as it avoids including the password as source code (which could then be discovered). This option is only included so that a known password can be supplied for when the server is running in "Standalone Mode".  `Password` may be a variable, causing the system to unify it with the created password.
-
-- pending_connections(+Count)
-Sets the number of pending connections allowed for the server as in `tcp_listen/2`. If not provided, the default is `5`.
+The password required for a connection. If not specified (recommended), the server will generate one as a Prolog string type since Prolog atoms are globally visible (be sure not to convert to an atom for this reason). If `Password` is a variable it will be unified with the created password. Regardless of whether the password is specified or generated, if the option `write_connection_values(true)` is set, the password is output to STDOUT followed by `\n` on startup to allow the client language library to retrieve it. This is the recommended way to integrate the server with a language as it avoids including the password as source code. This option is only included so that a known password can be supplied for when the server is running in Standalone Mode.
 
 - query_timeout(+Seconds)
 Sets the length of time in seconds a query is allowed to run before it is cancelled. If not set, the default is no timeout (`-1`).
+
+- pending_connections(+Count)
+Sets the number of pending connections allowed for the server as in `tcp_listen/2`. If not provided, the default is `5`.
 
 - run_server_on_thread(+Run_Server_On_Thread)
 Determines whether `language_server/1` runs in the background on its own thread or blocks until the server shuts down.  Must be missing or set to `true` when running in embedded mode so that the SWI Prolog process can exit properly. If not set, the default is `true`.
@@ -134,16 +150,16 @@ Determines whether `language_server/1` runs in the background on its own thread 
 Specifies or retrieves the name of the thread the server will run on if `run_server_on_thread(true)`. Passing in an atom for Server_Thread will only set the server thread name if run_server_on_thread(true).  If `Server_Thread` is a variable, it is unified with a generated name.
 
 - write_connection_values(+Write_Connection_Values)
-Determines whether the server writes the port and password to STDOUT as it initializes. Used by language libraries to retrieve this information for connecting. If not set, the default is `false`.
+Determines whether the server writes the port (or generated Unix Domain Socket) and password to STDOUT as it initializes. Used by language libraries to retrieve this information for connecting. If not set, the default is `false`.
 
 - write_output_to_file(+File)
-Redirects STDOUT and STDERR to the file specified.  Useful for debugging the server when it is being used in embedded mode. If using multiple servers in one SWI Prolog instance, only set this on the first one.  Each time it is set the output will be redirected.
+Redirects STDOUT and STDERR to the file path specified.  Useful for debugging the server when it is being used in Embedded Mode. If using multiple servers in one SWI Prolog instance, only set this on the first one.  Each time it is set the output will be redirected.
 
 ## Language Server Messages
 The messages the server responds to are described below. A few things are true for all of them:
 
 - Every connection is in its own separate thread. Opening more than one connection means the code is running concurrently.
-- Closing the socket without sending `close` and waiting for a response will halt the process depending on how the server was started. This is so that stopping a debugger doesn't leave the  process orphaned.
+- Closing the socket without sending `close` and waiting for a response will halt the process if running in Embedded Mode. This is so that stopping a debugger doesn't leave the process orphaned.
 - All messages are request/response messages. After sending, there will be exactly one response from the server.
 - Timeout in all of the commands is in seconds. Sending a variable (e.g. `_`) or `-1` means no timeout.
 - All queries are run in the default module context of `user`. `module/1` has no effect.
@@ -174,7 +190,7 @@ Runs `Goal` on the connection's designated query thread. Stops accepting new com
 
 While it is waiting for the query to complete, sends a "." character *not* in message format, just as a single character, once every two seconds to proactively ensure that the client is alive. Those should be read and discarded by the client.
 
-If a communication failure happens (during a heartbeat or otherwise), the connection is terminated, the query is aborted and (if running in embedded mode) the SWI Prolog process shuts down.
+If a communication failure happens (during a heartbeat or otherwise), the connection is terminated, the query is aborted and (if running in Embedded Mode) the SWI Prolog process shuts down.
 
 When completed, sends a response message using the normal message format indicating the result.
 
@@ -190,7 +206,7 @@ Response:
 
 Starts a Prolog query on the connection's designated query thread. Answers to the query, including exceptions, are retrieved afterwards by sending the `async_result/1` message (described below). The query can be cancelled by sending the `cancel_async/0` message. If a previous query is still in progress, waits until that query finishes (discarding that query's results) before responding.
 
-If the socket closes before responding, the connection is terminated, the query is aborted and (if running in embedded mode) the SWI Prolog process shuts down.
+If the socket closes before a response is sent, the connection is terminated, the query is aborted and (if running in embedded mode) the SWI Prolog process shuts down.
 
 If it needs to wait for the previous query to complete, it will send heartbeat messages (see the `Language Server Message Format` section) while it waits.  After it responds, however, it does not send more heartbeats. This is so that it can begin accepting new commands immediately after responding so the client.
 
@@ -208,15 +224,15 @@ Attempt to cancel a query started with `run_async/3` in a way that allows furthe
 
 If there is a goal running, injects a `throw(cancel_goal)` into the executing goal to attempt to stop the goal's execution. Begins accepting new commands immediately after responding. Does not inject `abort/0` because this would kill the connection's designated thread and the system is designed to maintain thread local data for the client. This does mean it is a "best effort" cancel since the exception can be caught.
 
-`cancel_async` is guaranteed to either respond with an exception (if there is no query, or pending results from the last query), or safely attempt to stop the last executed query even if it has already finished.
+`cancel_async` is guaranteed to either respond with an exception (if there is no query or pending results from the last query), or safely attempt to stop the last executed query even if it has already finished.
 
-To guaranteed that a query is cancelled, send `close` and close the socket.
+To guarantee that a query is cancelled, send `close` and close the socket.
 
 It is not necessary to determine the outcome of `cancel_async/0` after sending it and receiving a response. Further queries can be immediately run. They will start after the current query stops.
 
 However, if you do need to determine the outcome or determine when the query stops, send `async_result/1`. Using `Timeout = 0` is recommended since the query might have caught the exception or still be running.  Sending `async_result/1` will find out the "natural" result of the goal's execution. The "natural" result depends on the particulars of what the code actually did. The response could be:
 
-|`exception(cancel_goal)` | The goal was running and did not catch the exception. I.e. the goal was cancelled. |
+|`exception(cancel_goal)` | The query was running and did not catch the exception. I.e. the goal was successfully cancelled. |
 |`exception(time_limit_exceeded)` | The query timed out before getting cancelled. |
 |`exception(Exception)` | They query hits another exception before it has a chance to be cancelled. |
 | A valid answer | The query finished before being cancelled. |
@@ -226,7 +242,7 @@ Note that you will need to continue sending `async_result/1` until you receive a
 Response:
 
 | `true([[]])` | There is a query running or there are pending results for the last query. |
-| `exception(no_query)` | There is no query (or pending results from a query) to cancel. |
+| `exception(no_query)` | There is no query or pending results from a query to cancel. |
 | `exception(connection_failed)` | The connection has been unexpectedly shut down. The server will no longer be listening after this exception. |
 
 
@@ -259,7 +275,7 @@ Response:
 
 
 #### close
-Closes a connection cleanly, indicating that the subsequent socket close is not a connection failure. Thus it doesn't shutdown the server.  The response must be processed by the client before closing the socket or it will be interpreted as a connection failure.
+Closes a connection cleanly, indicating that the subsequent socket close is not a connection failure. Thus it doesn't shutdown the server in Embedded Mode.  The response must be processed by the client before closing the socket or it will be interpreted as a connection failure.
 
 Any asynchronous query that is still running will be halted by using `abort/0` in the connection's query thread.
 
@@ -308,6 +324,12 @@ language_server(Options) :-
     option(exit_main_on_failure(Exit_Main_On_Failure), Options, false),
     option(write_connection_values(Write_Connection_Values), Options, false),
     option(unix_domain_socket(Unix_Domain_Socket_Path_And_File), Options, _),
+    (   (   memberchk(unix_domain_socket(_), Options),
+            var(Unix_Domain_Socket_Path_And_File)
+        )
+    ->  unix_domain_socket_path(Unix_Domain_Socket_Path, Unix_Domain_Socket_Path_And_File)
+    ;   true
+    ),
     option(server_thread(Server_Thread_ID), Options, _),
     (   var(Server_Thread_ID)
     ->  gensym(language_server, Server_Thread_ID)
@@ -332,23 +354,26 @@ language_server(Options) :-
                     catch(server_thread(Server_Thread_ID, Socket, Client_Address, Final_Password, Connection_Count, Encoding, Query_Timeout, Exit_Main_On_Failure), error(E1, E2), true),
                     debug(prologServer(protocol), "Stopped server on thread: ~w due to exception: ~w", [Server_Thread_ID, error(E1, E2)])
                  ),
-    start_server_thread(Run_Server_On_Thread, Server_Thread_ID, Server_Goal, Unix_Domain_Socket_Path_And_File).
+    start_server_thread(Run_Server_On_Thread, Server_Thread_ID, Server_Goal, Unix_Domain_Socket_Path, Unix_Domain_Socket_Path_And_File).
 
-:- initialization(main,main).
+:- initialization(main, main).
 
 
 % Turn off int signal when running in embedded mode so the client language
 % debugger signal doesn't put Prolog into debug mode
 % run_server_on_thread must be missing or true (the default) so we can exit
 % properly
+% create_unix_domain_socket=true/false is only used as a command line argument
+% since it doesn't seem possible to pass create_unix_domain_socket=_ on the command line
+% and have it interpreted as a variable.
 main(Argv) :-
     argv_options(Argv, _Args, Options),
-    findall(Option_Out, (   member(Option, Options),
-                            compound_name_arguments(Option, Name, [Argument]),
-                            remove_wrapping_quotes(Argument, Argument_Out),
-                            compound_name_arguments(Option_Out, Name, [Argument_Out])
-                        ), Unwrapped_Options),
-    append(Unwrapped_Options, [exit_main_on_failure(true)], FinalOptions),
+    append(Options, [exit_main_on_failure(true)], Options1),
+    select_option(create_unix_domain_socket(Create_Unix_Domain_Socket), Options1, Options2, false),
+    (   Create_Unix_Domain_Socket
+    ->  append(Options2, [unix_domain_socket(_)], FinalOptions)
+    ;   FinalOptions = Options2
+    ),
     option(run_server_on_thread(Run_Server_On_Thread), FinalOptions, true),
     (   Run_Server_On_Thread
     ->  true
@@ -389,28 +414,32 @@ stop_language_server(Server_Thread_ID) :-
         )).
 
 
-start_server_thread(Run_Server_On_Thread, Server_Thread_ID, Server_Goal, Unix_Domain_Socket_Path_And_File) :-
+start_server_thread(Run_Server_On_Thread, Server_Thread_ID, Server_Goal, Unix_Domain_Socket_Path, Unix_Domain_Socket_Path_And_File) :-
     (   Run_Server_On_Thread
     ->  (   thread_create(Server_Goal, _, [ alias(Server_Thread_ID),
-                                            at_exit((delete_unix_domain_socket_file(Unix_Domain_Socket_Path_And_File),
+                                            at_exit((delete_unix_domain_socket_file(Unix_Domain_Socket_Path, Unix_Domain_Socket_Path_And_File),
                                                      detach_if_expected(Server_Thread_ID)
                                                     ))
                                           ]),
             debug(prologServer(protocol), "Started server on thread: ~w", [Server_Thread_ID])
         )
     ;   (   Server_Goal,
-            delete_unix_domain_socket_file(Unix_Domain_Socket_Path_And_File),
+            delete_unix_domain_socket_file(Unix_Domain_Socket_Path, Unix_Domain_Socket_Path_And_File),
             debug(prologServer(protocol), "Halting.", [])
         )
     ).
 
 
-% Unix domain sockets actually create a file that needs to be deleted
-% or the connection cannot be reopened using the same file
-delete_unix_domain_socket_file(Unix_Domain_Socket_Path_And_File) :-
-    (   nonvar(Unix_Domain_Socket_Path_And_File)
-    ->  catch(delete_file(Unix_Domain_Socket_Path_And_File), error(_, _), true)
-    ;   true
+% Unix domain sockets create a file that needs to be cleaned up
+% If language_server generated it, there is also a directory that needs to be cleaned up
+%   that will only contain that file
+delete_unix_domain_socket_file(Unix_Domain_Socket_Path, Unix_Domain_Socket_Path_And_File) :-
+    (   nonvar(Unix_Domain_Socket_Path)
+    ->  catch(delete_directory_and_contents(Unix_Domain_Socket_Path), error(_, _), true)
+    ;   (   nonvar(Unix_Domain_Socket_Path_And_File)
+        ->  catch(delete_file(Unix_Domain_Socket_Path_And_File), error(_, _), true)
+        ;   true
+        )
     ).
 
 
@@ -443,9 +472,9 @@ send_client_startup_data(Write_Connection_Values, Stream, Unix_Domain_Socket_Pat
     (   Write_Connection_Values
     ->  (   (  var(Unix_Domain_Socket_Path_And_File)
             ->  format(Stream, "~d\n", [Port])
-            ;   true
+            ;   format(Stream, "~w\n", [Unix_Domain_Socket_Path_And_File])
             ),
-            format(Stream, "~s\n", [Password]),
+            format(Stream, "~w\n", [Password]),
             flush_output(Stream)
         )
     ;   true
@@ -1039,23 +1068,46 @@ detach_if_expected(Thread_ID) :-
     ;   true
     ).
 
-% Command line args that have spaces need to be delimited with ""
-% but these quotes get embedded in the atom.
-% remove_wrapping_quotes removes them
-remove_wrapping_quotes(Atom_In, Atom_Out) :-
-    atom_chars(Atom_In, Atom_Chars),
-    (   (   Atom_Chars = ['\"' | AtomRest],
-            reverse(AtomRest,['\"'|X1]),
-            reverse(X1,Atom_Chars_Out),
-            atom_chars(Atom_Out, Atom_Chars_Out)
-        )
-    ->  true
-    ;   Atom_Out = Atom_In
-    ).
-
 
 write_output_to_file(File) :-
     debug(prologServer(protocol), "Writing all STDOUT and STDERR to file:~w", [File]),
     open(File, write, Stream, [buffer(false)]),
     set_prolog_IO(user_input, Stream, Stream).
 
+
+% Creates a Unix Domain Socket file
+% Requirements for this file are:
+%    - The Prolog process will attempt to create and, if Prolog exits cleanly,
+%           delete this file when the server closes.  This means the directory
+%           must have the appropriate permissions to allow the Prolog process
+%           to do so.
+%    - For security reasons, the filename should not be predictable and the
+%           directory it is contained in should have permissions set so that files
+%           created are only accessible to the current user.
+%    - The path must be below 92 *bytes* long (including null terminator) to
+%           be portable according to the Linux documentation
+%
+% Creates a temporary subdirectory and temporary file in "/tmp".  If this
+%      directory doesn't exist, will fail.
+% Need to call shell/1 as make_directory/1 doesn't allow setting permissions
+% Need mkdir /tmp as opposed to one of the mktemp variants, as those work
+%     differently across mac and other linux and can generate large paths
+%     (and also don't allow setting permissions)
+% Make a 38 byte pseudo random directory name using uuid
+% Create with 700 (rwx------)  permission so it is only accessible by current user
+% Create a secure tmp file in the new directory
+% {set,current}_prolog_flag is copied to a thread, so
+% no need to use a mutex.
+% Close the stream so sockets can use it
+unix_domain_socket_path(Created_Directory, Absolute_File_Path) :-
+    uuid(UUID, [format(integer)]),
+    format(atom(Created_Directory), '/tmp/~d', [UUID]),
+    format(atom(Make_Directory_Command), 'mkdir -m 700 ~s', [Created_Directory]),
+    shell(Make_Directory_Command),
+    setup_call_cleanup( (   current_prolog_flag(tmp_dir, Save_Tmp_Dir),
+                            set_prolog_flag(tmp_dir, Created_Directory)
+                        ),
+                        tmp_file_stream(Absolute_File_Path, Stream, []),
+                        set_prolog_flag(tmp_dir, Save_Tmp_Dir)
+                      ),
+    close(Stream).

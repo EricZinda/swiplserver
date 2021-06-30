@@ -10,13 +10,13 @@
 # pdoc --html --config show_source_code=False swiplserver.prologserver --force --output-dir docs --http localhost:5000
 
 """
-Allows using SWI Prolog as an embedded part of an application, "like a library". Tested with SWI-Prolog 8.2.4-1 and Python 3.7.4.
+Allows using SWI Prolog as an embedded part of an application, "like a library".
 
-`swiplserver` enables SWI Prolog queries to be executed from within your Python application as if Python had a Prolog engine running inside of it.
+`swiplserver` enables SWI Prolog queries to be executed from within your Python application as if Python had a Prolog engine running inside of it. Queries are sent as strings like "atom(foo)" and the response is JSON.
 
 `swiplserver` provides:
 
- - The `PrologServer` class that automatically manages starting and stopping the SWI Prolog instance(s) and runs the `language_server/1` predicate which starts a JSON query server.  This predicate is defined in the `language_server.pl` Prolog program included with this library.
+ - The `PrologServer` class that automatically manages starting and stopping the SWI Prolog instance(s) and runs the `language_server/1` predicate which starts a JSON query server.  This predicate is defined in the `language_server.pl` Prolog program included with this library. This is all managed automatically.
  - The `PrologThread` class is used to run queries on the created process. Queries are run exactly as they would be if you were interacting with the SWI Prolog "top level" (i.e. the Prolog command line).
 
 Installation:
@@ -27,7 +27,7 @@ Installation:
 
 Usage:
 
-    `PrologThread` represents a thread in *Prolog* (not in Python!). A given `PrologThread` instance will always run queries on the same Prolog thread (i.e. single threaded within Prolog).
+    `PrologThread` represents a thread in *Prolog* (it is not a Python thread!). A given `PrologThread` instance will always run queries on the same Prolog thread (i.e. single threaded within Prolog).
 
     To run a query and wait until all results are returned:
 
@@ -215,7 +215,7 @@ class PrologServer:
 
         All arguments are optional and the defaults are set to the recommended settings that work best on all platforms during development. In production on Unix systems, consider using unix_domain_socket to further decrease security attack surface area.
 
-        For debugging scenarios, SWI Prolog can be launched manually and this class can be configured to (locally) connect to it using launch_server = False. This allows for inspection of the server state and using the SWI Prolog debugging tools while your application is running. See the documentation for the Prolog `language_server/1` predicate for more information on how to run the language server in this mode.
+        For debugging scenarios, SWI Prolog can be launched manually and this class can be configured to (locally) connect to it using launch_server = False. This allows for inspection of the server state and using the SWI Prolog debugging tools while your application is running. See the documentation for the Prolog `language_server/1` predicate for more information on how to run the language server in "Standalone Mode".
 
         Examples:
             To automatically launch a SWI Prolog process using TCP/IP localhost to communicate with an automatically chosen port and password (the default):
@@ -223,15 +223,15 @@ class PrologServer:
                 with PrologServer() as server:
                     # your code here
 
-            To connect to an existing SWI Prolog process that has already started the language_server/1 predicate and is using the Unix Domain Socket '/temp/mysocket' and a password of '8UIDSSDXLPOI':
+            To connect to an existing SWI Prolog process that has already started the language_server/1 predicate and is using an automatically generated Unix Domain Socket and a password of '8UIDSSDXLPOI':
 
                 with PrologServer(launch_server = False,
-                                  unix_domain_socket = '/temp/mysocket',
+                                  unix_domain_socket = '',
                                   password = '8UIDSSDXLPOI') as server:
                     # your code here
 
         Args:
-            launch_server: True (default) launch a SWI Prolog process on `PrologServer.start()` and shuts it down automatically on `PrologServer.stop()` (or after a resource manager like the Python "with" statement exits). False connects to an existing SWI Prolog process that is running the language_server/1 predicate. When False, password and one of port or unix_domain_socket must be specified to match the options provided to `language_server/1` in the separate SWI Prolog process.
+            launch_server: True (default) launch a SWI Prolog process on `PrologServer.start()` and shuts it down automatically on `PrologServer.stop()` (or after a resource manager like the Python "with" statement exits). False connects to an existing SWI Prolog process that is running the language_server/1 predicate (i.e. "Standalone Mode"). When False, password and one of port or unix_domain_socket must be specified to match the options provided to `language_server/1` in the separate SWI Prolog process.
 
             port: The TCP/IP localhost port to use for communication with the SWI Prolog process. Ignored if unix_domain_socket is not None.
                 When launch_server is True, None (default) automatically picks an open port that the server and this class both use.
@@ -241,16 +241,17 @@ class PrologServer:
                 When launch_server is True, None (default) automatically generates a strong password using a uuid. Other values specify the password to use.
                 When launch_server is False, must be set to match the password specified in language_server/1 of the running SWI Prolog process.
 
-            unix_domain_socket: None (default) use localhost TCP/IP for communication with the SWI Prolog process. Otherwise (only on Unix) is the fully qualified path and filename of the Unix Domain Socket to use. If the file exists when the server is launched, it will be deleted. Some considerations when choosing the value to use:
+            unix_domain_socket: None (default) use localhost TCP/IP for communication with the SWI Prolog process. Otherwise (only on Unix) is either a fully qualified path and filename of the Unix Domain Socket to use or an empty string (recommended). An empty string will cause a temporary directory and socket file to be generated automatically in "/tmp" that follows the below requirements. If "/tmp" does not exist, `PrologServer.start()` with raise an exception. Specifying a file to use should follow the same guidelines as the generated file:
 
-                - The directory containing the file must grant the user (and ideally only that user) running the application the ability to create and delete files created within it.
-                - For security reasons, the filename should not be predictable.
+                - If the file exists when the server is launched, it will be deleted.
+                - If the path is not an absolute path, an exception will be thrown.
+                - The Prolog process will attempt to create and, if Prolog exits cleanly, delete this file when the server closes.  This means the directory must have the appropriate permissions to allow the Prolog process to do so.
+                - For security reasons, the filename should not be predictable and the directory it is contained in should have permissions set so that files created are only accessible to the current user.
                 - The path must be below 92 *bytes* long (including null terminator) to be portable according to the Linux documentation.
-                - If neither the Python process or the Prolog process exit cleanly (e.g. they are killed by the debugger) the socket file will be left on disk.
 
             query_timeout_seconds: None (default) set the default timeout for all queries to be infinite (this can be changed on a per query basis). Other values set the default timeout in seconds.
 
-            pending_connection_count: Set the default number of pending connections allowed on the server. Since the server is only connected to by your application and is not a server, this value should probably never be changed unless your application is creating new PrologThread objects at a very high rate.
+            pending_connection_count: Set the default number of pending connections allowed on the server. Since the server is only connected to by your application and is not a server, this value should probably never be changed unless your application is creating new `PrologThread` objects at a very high rate.
                 When launch_server is True, None uses the default (5) and other values set the count.
                 When launch_server is False, ignored.
 
@@ -282,6 +283,8 @@ class PrologServer:
         if self._unix_domain_socket is not None:
             if os.name == "nt":
                 raise ValueError("Unix Domain Sockets are not supported on windows")
+            elif self._port is not None:
+                raise ValueError("Must only provide one of: port or unix_domain_socket")
 
         if self._launch_server is False and self._output_file is not None:
             raise ValueError("output_file only works when launch_server is True.")
@@ -326,7 +329,7 @@ class PrologServer:
 
     def start(self):
         """
-        Start a new SWI Prolog process associated with this class using the settings from `PrologServer.__init__()`. If launch_server is False, does nothing..
+        Start a new SWI Prolog process associated with this class using the settings from `PrologServer.__init__()`. If launch_server is False, does nothing.
 
         To create the SWI Prolog process, 'swipl' must be on the system path. Manages the lifetime of the process it creates, ending it on `PrologServer.stop()`.
 
@@ -335,7 +338,6 @@ class PrologServer:
         """
         if self._launch_server:
             prologPath = join(os.path.dirname(os.path.realpath(__file__)), "language_server.pl")
-            # Needs to be this: swipl --quiet -g command_line_language_server -t halt  /Users/ericzinda/Enlistments/swiplserver/swiplserver/language_server.pl  --write_connection_values=true
             launchArgs = ["swipl",
                           prologPath,
                           "--write_connection_values=true"]
@@ -345,18 +347,18 @@ class PrologServer:
             if self._query_timeout is not None:
                 launchArgs += ["--query_timeout={}".format(str(self._query_timeout))]
             if self._password is not None:
-                launchArgs += ["--password=\"{}\"".format(str(self._password))]
+                launchArgs += ["--password={}".format(str(self._password))]
             if self._output_file is not None:
                 finalPath = create_posix_path(self._output_file)
-                launchArgs += ["--write_output_to_file=\"{}\"".format(finalPath)]
+                launchArgs += ["--write_output_to_file={}".format(finalPath)]
                 _log.debug("Writing all Prolog output to file: %s", finalPath)
             if self._port is not None:
                 launchArgs += ["--port={}".format(str(self._port))]
             if self._unix_domain_socket is not None:
-                if os.name == "nt":
-                    raise PrologLaunchError("Unix Domain Sockets are not supported on windows")
+                if len(self._unix_domain_socket) > 0:
+                    launchArgs += ["--unix_domain_socket={}".format(self._unix_domain_socket)]
                 else:
-                    launchArgs += ["--unix_domain_socket=\"{}\"".format(self._unix_domain_socket)]
+                    launchArgs += ["--create_unix_domain_socket=true"]
 
             _log.debug("PrologServer launching swipl: %s", launchArgs)
             try:
@@ -376,6 +378,11 @@ class PrologServer:
                     serverPortString = portString.rstrip('\n')
                     self._port = int(serverPortString)
                     _log.debug("Prolog server port: %s", self._port)
+            else:
+                domain_socket = self._process.stdout.readline().decode()
+                if domain_socket == '':
+                    raise PrologLaunchError("no Unix Domain Socket found in stdout")
+                self._unix_domain_socket = domain_socket.rstrip('\n')
 
             passwordString = self._process.stdout.readline().decode()
             if passwordString == '':
@@ -411,7 +418,7 @@ class PrologServer:
         """Retrieve the operating system process id of the SWI Prolog process that was launched by this class.
 
         Returns:
-             None if the value of launch_server passed to `PrologServer` is False or if `PrologServer.start()` has not yet been called. Otherwise return the operating system process id.
+             None if the value of launch_server passed to `PrologServer` is False or if `PrologServer.start()` has not yet been called. Otherwise return the operating system process ID.
         """
         if self._process is not None:
             return self._process.pid
@@ -546,7 +553,7 @@ class PrologThread:
 
         Calls `PrologServer.start()` and `PrologThread.start()` if either is not already started.
 
-        The query is run on the same Prolog thread every time, emulating the Prolog top level. Other than using a timeout, closing the connection is the only way to cancel the goal.  To run a cancellable goal that keeps the thread alive, use `PrologThread.query_async()`.
+        The query is run on the same Prolog thread every time, emulating the Prolog top level. There is no way to cancel the goal using this method, so using a timeout is recommended. To run a cancellable goal, use `PrologThread.query_async()`.
 
         Args:
             value: A Prolog query to execute as a string, just like you would run on the Prolog top level. e.g. `"member(X, [1, 2]), X = 2"`.
@@ -555,9 +562,9 @@ class PrologThread:
         Raises:
             `PrologQueryTimeoutError` if the query timed out.
 
-            `PrologConnectionFailedError` if the query thread has unexpectedly exited. The server will no longer be listening after this exception.
-
             `PrologError` for all other exceptions that occurred when running the query in Prolog.
+
+            `PrologConnectionFailedError` if the query thread has unexpectedly exited. The server will no longer be listening after this exception.
 
         Returns:
             False: The query failed.
@@ -584,13 +591,13 @@ class PrologThread:
 
         Args:
             value: A Prolog query to execute as a string, just like you would run on the Prolog top level. e.g. `"member(X, [1, 2]), X = 2"`.
-            find_all: `True` (default) will run the query using Prolog's `findall/3` to return a single answer when `PrologThread.query_async_result()` is called. `False` will return one answer per `PrologThread.query_async_result()` call.
+            find_all: `True` (default) will run the query using Prolog's `findall/3` to return all answers with one call to `PrologThread.query_async_result()`. `False` will return one answer per `PrologThread.query_async_result()` call.
             query_timeout_seconds: `None` uses the `query_timeout_seconds` set in the `prolog_server` object passed to `PrologThread`.
 
         Raises:
-            `PrologConnectionFailedError` if the query thread has unexpectedly exited. The server will no longer be listening after this exception.
-
             `PrologError` if an exception occurs in Prolog when parsing the goal.
+
+            `PrologConnectionFailedError` if the query thread has unexpectedly exited. The server will no longer be listening after this exception.
 
             Any exception that happens when running the query is raised when calling `PrologThread.query_async_result()`
 
@@ -611,7 +618,7 @@ class PrologThread:
         """
         Attempt to cancel a query started with `PrologThread.query_async()` in a way that allows further queries to be run on this `PrologThread` afterwards.
 
-        If there is a query running, injects a Prolog `throw(cancel_goal)` into the thread the query is running on. Does not inject Prolog `abort/0` because this would kill the thread and we want to keep the thread alive for future queries.  This means it is a "best effort" cancel since the exception can be caught by your Prolog code. `cancel_query_async()` is guaranteed to either raise an exception (if there is no query or pending results from the last query), or safely attempt to stop the last executed query.
+        If there is a query running, injects a Prolog `throw(cancel_goal)` into the query's thread. Does not inject Prolog `abort/0` because this would kill the thread and we want to keep the thread alive for future queries.  This means it is a "best effort" cancel since the exception can be caught by your Prolog code. `cancel_query_async()` is guaranteed to either raise an exception (if there is no query or pending results from the last query), or safely attempt to stop the last executed query.
 
         To guaranteed that a query is cancelled, call `PrologThread.stop()` instead.
 
@@ -619,7 +626,7 @@ class PrologThread:
 
         If you do need to determine the outcome or determine when the query stops, call `PrologThread.query_async_result(wait_timeout_seconds = 0)`. Using `wait_timeout_seconds = 0` is recommended since the query might have caught the exception or still be running.  Calling `PrologThread.query_async_result()` will return the "natural" result of the goal's execution. The "natural" result depends on the particulars of what the code actually did. The return value could be one of:
 
-        - Raise `PrologQueryCancelledError` if the goal was running and did not catch the exception. I.e. the goal was cancelled.
+        - Raise `PrologQueryCancelledError` if the goal was running and did not catch the exception. I.e. the goal was successfully cancelled.
         - Raise `PrologQueryTimeoutError` if the query timed out before getting cancelled.
         - Raise `PrologError` (i.e. an arbitrary exception) if query hits another exception before it has a chance to be cancelled.
         - A valid answer if the query finished before being cancelled.
@@ -810,7 +817,7 @@ def create_posix_path(os_path):
     """
     Convert a file path in whatever the current OS path format is to be a posix path so Prolog can understand it.
 
-    This is useful for Prolog predicates like `consult` which need a path to be passed in.
+    This is useful for Prolog predicates like `consult` which need a Posix path to be passed in on any platform.
     """
     # Attempt to convert the local file system format to Posix. Need to handle
     # "C:\" on windows with a workaround since PurePath doesn't really handle it right
@@ -823,35 +830,35 @@ def create_posix_path(os_path):
 
 def is_prolog_functor(json_term):
     """
-    True if json_term is Prolog json representing a Prolog functor (i.e. a term with zero or more arguments).  See `swiplserver.prologserver` for documentation on the Prolog json format.
+    True if json_term is Prolog JSON representing a Prolog functor (i.e. a term with zero or more arguments).  See `swiplserver.prologserver` for documentation on the Prolog JSON format.
     """
     return isinstance(json_term, dict) and "functor" in json_term and "args" in json_term
 
 
 def is_prolog_list(json_term):
     """
-    True if json_term is Prolog json representing a Prolog list.  See `swiplserver.prologserver` for documentation on the Prolog json format.
+    True if json_term is Prolog JSON representing a Prolog list.  See `swiplserver.prologserver` for documentation on the Prolog JSON format.
     """
     return isinstance(json_term, list)
 
 
 def is_prolog_variable(json_term):
     """
-    True if json_term is Prolog json representing a Prolog variable.  See `swiplserver.prologserver` for documentation on the Prolog json format.
+    True if json_term is Prolog JSON representing a Prolog variable.  See `swiplserver.prologserver` for documentation on the Prolog JSON format.
     """
     return isinstance(json_term, str) and (json_term[0].isupper() or json_term[0] == "_")
 
 
 def is_prolog_atom(json_term):
     """
-    True if json_term is Prolog json representing a Prolog atom.  See `swiplserver.prologserver` for documentation on the Prolog json format.
+    True if json_term is Prolog JSON representing a Prolog atom.  See `swiplserver.prologserver` for documentation on the Prolog JSON format.
     """
     return isinstance(json_term, str) and not is_prolog_variable(json_term)
 
 
 def prolog_name(json_term):
     """
-    Return the atom (if json_term is an atom), variable (if a variable) or functor name of json_term.  json_term must be in the Prolog json format. See `swiplserver.prologserver` for documentation on the Prolog json format.
+    Return the atom (if json_term is an atom), variable (if a variable) or functor name of json_term.  json_term must be in the Prolog JSON format. See `swiplserver.prologserver` for documentation on the Prolog JSON format.
     """
     if is_prolog_atom(json_term) or is_prolog_variable(json_term):
         return json_term
@@ -861,7 +868,7 @@ def prolog_name(json_term):
 
 def prolog_args(json_term):
     """
-    Return the arguments from json_term if json_term is in the Prolog json format. See `swiplserver.prologserver` for documentation on the Prolog json format.
+    Return the arguments from json_term if json_term is in the Prolog JSON format. See `swiplserver.prologserver` for documentation on the Prolog JSON format.
     """
     return json_term["args"]
 
@@ -889,7 +896,7 @@ def quote_prolog_identifier(identifier: str):
 
 def json_to_prolog(json_term):
     """
-    Convert json_term from the Prolog json format to a string that represents the term in the Prolog language. See `swiplserver.prologserver` for documentation on the Prolog json format.
+    Convert json_term from the Prolog JSON format to a string that represents the term in the Prolog language. See `swiplserver.prologserver` for documentation on the Prolog JSON format.
     """
     if is_prolog_functor(json_term):
         argsString = [json_to_prolog(item) for item in prolog_args(json_term)]
