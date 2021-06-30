@@ -214,7 +214,6 @@ Regardless of whether the file is specified or generated, if the option `write_c
 
 Specifying a file to use should follow the same guidelines as the generated file:
     - If the file exists when the server is launched, it will be deleted.
-    - If the path is not an absolute path, an exception will be thrown.
     - The Prolog process will attempt to create and, if Prolog exits cleanly, delete this file (and directory if it was created) when the server closes.  This means the directory from a specified file must have the appropriate permissions to allow the Prolog process to do so.
     - For security reasons, the filename should not be predictable and the directory it is contained in should have permissions set so that files created are only accessible to the current user.
     - The path must be below 92 *bytes* long (including null terminator) to be portable according to the Linux documentation.
@@ -532,11 +531,7 @@ delete_unix_domain_socket_file(Unix_Domain_Socket_Path, Unix_Domain_Socket_Path_
 % Delete the socket file in case it is already around so that the same name can be reused
 bind_socket(Server_Thread_ID, Unix_Domain_Socket_Path_And_File, Port, Socket, Client_Address) :-
     (   nonvar(Unix_Domain_Socket_Path_And_File)
-    ->  (   absolute_file_name(Unix_Domain_Socket_Path_And_File, Unix_Domain_Socket_Path_And_File)
-        ->  true
-        ;   throw(domain_error(not_fully_qualified, Unix_Domain_Socket_Path_And_File))
-        ),
-        debug(prologServer(protocol), "Using Unix domain socket name: ~w", [Unix_Domain_Socket_Path_And_File]),
+    ->  debug(prologServer(protocol), "Using Unix domain socket name: ~w", [Unix_Domain_Socket_Path_And_File]),
         unix_domain_socket(Socket),
         catch(delete_file(Unix_Domain_Socket_Path_And_File), error(_, _), true),
         tcp_bind(Socket, Unix_Domain_Socket_Path_And_File),
@@ -1175,7 +1170,7 @@ write_output_to_file(File) :-
 % Create a secure tmp file in the new directory
 % {set,current}_prolog_flag is copied to a thread, so no need to use a mutex.
 % Close the stream so sockets can use it
-unix_domain_socket_path(Created_Directory, Absolute_File_Path) :-
+unix_domain_socket_path(Created_Directory, File_Path) :-
     tmp_file(udsock, Created_Directory),
     make_directory(Created_Directory),
     catch(  chmod(Created_Directory, urwx),
@@ -1187,7 +1182,7 @@ unix_domain_socket_path(Created_Directory, Absolute_File_Path) :-
     setup_call_cleanup( (   current_prolog_flag(tmp_dir, Save_Tmp_Dir),
                             set_prolog_flag(tmp_dir, Created_Directory)
                         ),
-                        tmp_file_stream(Absolute_File_Path, Stream, []),
+                        tmp_file_stream(File_Path, Stream, []),
                         set_prolog_flag(tmp_dir, Save_Tmp_Dir)
                       ),
     close(Stream).

@@ -576,9 +576,14 @@ class TestPrologServer(ParametrizedTestCase):
 
                 # When starting a server, some variables can be filled in with defaults. Also: only the server thread should be created
                 # Launch the new server with appropriate options specified with variables to make sure they get filled in
-                result = monitorThread.query("language_server([port(Port), server_thread(ServerThreadID), password(Password), unix_domain_socket(Unix)])")
-                optionsDict = result[0]
-                assert "Port" in optionsDict and "ServerThreadID" in optionsDict and "Password" in optionsDict and "Unix" in optionsDict
+                if os.name == "nt":
+                    result = monitorThread.query("language_server([port(Port), server_thread(ServerThreadID), password(Password)])")
+                    optionsDict = result[0]
+                    assert "Port" in optionsDict and "ServerThreadID" in optionsDict and "Password" in optionsDict
+                else:
+                    result = monitorThread.query("language_server([port(Port), server_thread(ServerThreadID), password(Password), unix_domain_socket(Unix)])")
+                    optionsDict = result[0]
+                    assert "Port" in optionsDict and "ServerThreadID" in optionsDict and "Password" in optionsDict and "Unix" in optionsDict
 
                 # Get the new threadlist
                 result = monitorThread.query("thread_property(ThreadID, status(Status))")
@@ -848,7 +853,7 @@ def load_tests(loader, standard_tests, pattern):
     # run_unix_domain_sockets_performance_tests(suite)
 
     # Tests a specific test
-    # suite.addTest(TestPrologServer('test_connection_close_with_running_query'))
+    # suite.addTest(TestPrologServer('test_server_options_and_shutdown'))
     # socketPath = os.path.dirname(os.path.realpath(__file__))
     # suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, test_item_name="test_connection_close_with_running_query", launchServer=False,
     #                                                serverPort=4242, password="test"))

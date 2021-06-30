@@ -151,7 +151,7 @@ close.
 Note that Unix Domain Sockets can be used instead of a TCP/IP port. How to do this is described in the <a href="language_server.html#language_server/1">language_server/1</a> Options documentation.</p>
 
 <p>
-Here's the same example running in the R language</p>
+Here's the same example running in the R language. Note that this is <b>not</b> an example of how to use language_server from R, it just shows the first code a developer would write as they begin to build a nice library to connect R to Prolog using the language_server:</p>
 
 <pre class="code" ext="">
 # Server run with: swipl language_server.pl --port=40001 --password=123
@@ -270,7 +270,6 @@ Regardless of whether the file is specified or generated, if the option <code>wr
 Specifying a file to use should follow the same guidelines as the generated file:</p>
 <ul>
 <li>If the file exists when the server is launched, it will be deleted.</li>
-<li>If the path is not an absolute path, an exception will be thrown.</li>
 <li>The Prolog process will attempt to create and, if Prolog exits cleanly, delete this file (and directory if it was created) when the server closes. This means the directory from a specified file must have the appropriate permissions to allow the Prolog process to do so.</li>
 <li>For security reasons, the filename should not be predictable and the directory it is contained in should have permissions set so that files created are only accessible to the current user.</li>
 <li>The path must be below 92 <b>bytes</b> long (including null terminator) to be portable according to the Linux documentation.</li>

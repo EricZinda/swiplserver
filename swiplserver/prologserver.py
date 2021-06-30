@@ -244,7 +244,6 @@ class PrologServer:
             unix_domain_socket: None (default) use localhost TCP/IP for communication with the SWI Prolog process. Otherwise (only on Unix) is either a fully qualified path and filename of the Unix Domain Socket to use or an empty string (recommended). An empty string will cause a temporary directory to be created using Prolog's `tmp_file/2` and a socket file will be created within that directory following the below requirements.  If the directory and file are unable to be created for some reason, `PrologServer.start()` with raise an exception. Specifying a file to use should follow the same guidelines as the generated file:
 
                 - If the file exists when the server is launched, it will be deleted.
-                - If the path is not an absolute path, an exception will be thrown.
                 - The Prolog process will attempt to create and, if Prolog exits cleanly, delete this file when the server closes.  This means the directory must have the appropriate permissions to allow the Prolog process to do so.
                 - For security reasons, the filename should not be predictable and the directory it is contained in should have permissions set so that files created are only accessible to the current user.
                 - The path must be below 92 *bytes* long (including null terminator) to be portable according to the Linux documentation.

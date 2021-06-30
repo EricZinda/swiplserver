@@ -393,7 +393,6 @@ When launch_server is False, must be set to match the password specified in lang
 If the directory and file are unable to be created for some reason, <code><a title="swiplserver.prologserver.PrologServer.start" href="#swiplserver.prologserver.PrologServer.start">PrologServer.start()</a></code> with raise an exception. Specifying a file to use should follow the same guidelines as the generated file:</p>
 <ul>
 <li>If the file exists when the server is launched, it will be deleted.</li>
-<li>If the path is not an absolute path, an exception will be thrown.</li>
 <li>The Prolog process will attempt to create and, if Prolog exits cleanly, delete this file when the server closes.
 This means the directory must have the appropriate permissions to allow the Prolog process to do so.</li>
 <li>For security reasons, the filename should not be predictable and the directory it is contained in should have permissions set so that files created are only accessible to the current user.</li>
