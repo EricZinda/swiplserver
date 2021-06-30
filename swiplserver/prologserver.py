@@ -116,6 +116,7 @@ from os.path import join
 from threading import Thread
 from pathlib import PurePath, PurePosixPath, PureWindowsPath
 from tempfile import gettempdir
+from time import sleep
 
 
 class PrologError(Exception):
@@ -516,7 +517,23 @@ class PrologThread:
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         _log.debug("PrologServer connecting to Prolog at: %s", prologAddress)
-        self._socket.connect(prologAddress)
+
+        # There is a race condition where the server has not yet started enough
+        # to connect, give it 3 seconds and then fail since it is a really small
+        # window for the race condition
+        connect_count = 0
+        while connect_count < 3:
+            try:
+                self._socket.connect(prologAddress)
+                break
+            except ConnectionRefusedError as error:
+                _log.debug("Server not responding", prologAddress)
+                connect_exception = error
+                connect_count += 1
+                sleep(1)
+                continue
+        if connect_count == 3:
+            raise connect_exception
 
         # Send the password as the first message
         self._send("{}".format(self._prolog_server._password))
