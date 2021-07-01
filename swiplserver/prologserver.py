@@ -16,14 +16,21 @@ Allows using SWI Prolog as an embedded part of an application, "like a library".
 
 `swiplserver` provides:
 
- - The `PrologServer` class that automatically manages starting and stopping the SWI Prolog instance(s) and runs the `language_server/1` predicate which starts a JSON query server.  This predicate is defined in the `language_server.pl` Prolog program included with this library. This is all managed automatically.
+ - The `PrologServer` class that automatically manages starting and stopping the SWI Prolog instance(s) and runs the `language_server/1` predicate which starts a JSON query server.
  - The `PrologThread` class is used to run queries on the created process. Queries are run exactly as they would be if you were interacting with the SWI Prolog "top level" (i.e. the Prolog command line).
 
 Installation:
 
     1. Install SWI Prolog (www.swi-prolog.org) and ensure that "swipl" is on the system path.
     2. Copy the "swiplserver" library (the whole directory) to be a subdirectory of your Python project.
+    3. Check if your SWI Prolog version includes the Language Server by launching it and typing `?- language_server([]).` If it can't find it, see below for how to install it.
     3. From within your python project directory run the tests using "python ./swiplserver/test_prologserver.py" to ensure everything is working correctly.
+
+    If your SWI Prolog doesn't yet include the language server:
+
+    1. Download the `language_server.pl` file from the [GitHub repository](https://github.com/EricZinda/swiplserver/tree/main/language_server).
+    2. Copy it to the `/swipl/library` directory where SWI Prolog is installed
+    3. Launch SWI Prolog and type `?- make.`. This will update the installation to include it.
 
 Usage:
 
@@ -257,7 +264,7 @@ class PrologServer:
 
             output_file_name: Provide the file name for a file to redirect all Prolog output (STDOUT and STDERR) to. Used for debugging or gathering a log of Prolog output. None outputs all Prolog output to the Python logging infrastructure using the 'swiplserver' log.  If using multiple servers in one SWI Prolog instance, only set this on the first one.  Each time it is set the output will be deleted and redirected.
 
-            server_traces: Only used in unusual debugging circumstances. True turns on all tracing output from Prolog `language_server/1` server (i.e. runs `debug(prologServer(_)).` in Prolog). Since these are Prolog traces, where they go is determined by output_file_name.
+            server_traces: Only used in unusual debugging circumstances. True turns on all tracing output from Prolog `language_server/1` server (i.e. runs `debug(language_server(_)).` in Prolog). Since these are Prolog traces, where they go is determined by output_file_name.
 
         Raises:
             ValueError if the arguments don't make sense.  For example: choosing Unix Domain Sockets on Windows or setting output_file with launch_server = False
@@ -339,7 +346,10 @@ class PrologServer:
         if self._launch_server:
             prologPath = join(os.path.dirname(os.path.realpath(__file__)), "language_server.pl")
             launchArgs = ["swipl",
-                          prologPath,
+                          "--quiet",
+                          "-g", "language_server",
+                          "-t", "halt",
+                          "--",
                           "--write_connection_values=true"]
 
             if self.pending_connections is not None:
@@ -395,7 +405,7 @@ class PrologServer:
 
             if self._server_traces:
                 with self.create_thread() as prologThread:
-                    prologThread.query("debug(prologServer(_))")
+                    prologThread.query("debug(language_server(_))")
 
     def create_thread(self):
         """

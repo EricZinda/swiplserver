@@ -1,182 +1,41 @@
-:- module(language_server, [language_server/1, stop_language_server/1]).
+:- module(language_server, [language_server/0, language_server/1, stop_language_server/1]).
 
 % To generate docs:
 % - Open SWI Prolog
 % - consult("/.../swiplserver/swiplserver/language_server.pl")
 % - doc_save("/.../swiplserver/swiplserver/language_server.pl", [doc_root("/.../swiplserver/docs/language_server")]).
 
-/** <module> Prolog Language Server
+/*  Prolog Language Server
     Author:        Eric Zinda
     E-mail:        ericz@inductorsoftware.com
     WWW:           http://www.inductorsoftware.com
     Copyright (c)  2021, Eric Zinda
+    All rights reserved.
 
-The SWI Prolog Language Server is designed to enable "embedding" SWI Prolog into just about any programming language (Python, Go, C#, etc) in a straightforward way. It is designed for scenarios that need to use SWI Prolog as a local implementation detail of another language. Think of it as running SWI Prolog "like a library". It can support any programming language that can launch processes, read their STDOUT pipe, and send and receive JSON over TCP/IP. A Python 3.x library is provided.
+        Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions
+    are met:
 
-Key features of the server:
-    - Simulates the familiar Prolog "top level" (i.e. the interactive prompt you get when running Prolog: "?-").
-    - Always runs queries from a connection on a consistent, single thread for that connection. The application itself can still be multi-threaded by running queries that use the multi-threading Prolog predicates or by opening more than one connection.
-    - Runs as a separate dedicated *local* Prolog process to simplify integration (vs. using the C-level SWI Prolog interface). The process is launched and managed by a specific running client (e.g. Python or other language) program.
-    - Communicates using sockets and JSON encoded as UTF-8 to allow it to work on any platform supported by SWI Prolog. For security reasons, only listens on TCP/IP localhost or Unix Domain Sockets and requires (or generates depending on the options) a password to open a connection.
-    - Has a lightweight text-based message format with only 6 commands: run synchronous query, run asynchronous query, retrieve asynchronous results, cancel asynchronous query, close connection and terminate the session.
-    - Communicates answers using JSON, a well-known data format supported by most languages natively or with generally available libraries.
+    1. Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
 
+    2. Redistributions in binary form must reproduce the above copyright
+       notice, this list of conditions and the following disclaimer in
+       the documentation and/or other materials provided with the
+       distribution.
 
-The server can be used in two different modes:
-    - *Embedded mode*: This is the main use case for the server. The user uses a library (just like any other library in their language of choice). That library integrates the language server as an implementation detail by launching the SWI Prolog process, connecting to it, and wrapping the protocol with a language specific interface.
-    - *Standalone mode*: The user still uses a library as above, but launches SWI Prolog independently of the language. The client language library connects to that process. This allows the user to see, interact with, and debug the Prolog process while the library interacts with it.
-
-Note that the language server is related to the pengines library, but where the pengines library is focused on a client/server, multi-tenet, sandboxed environment, the language server is local, single tenet and unconstrained. Thus, when the requirement is to embed Prolog within another programming language "like a library", it can be a good solution for exposing the full power of Prolog with low integration overhead.
-
-## Installation Steps for Any Language
-In order to use the language server with any programming language:
-
-    1. Install SWI Prolog itself on the machine the application will run on.
-    2. Ensure that the system path includes a path to the `swipl` executable from that installation.
-    3. Make sure the application (really the user that launches the application) has permission to launch the SWI Prolog process.
-    4. Install (or write!) the library you'll be using to access the language server in your language of choice.
-
-The first two should be straightforward.
-
-For #3, your application will need to have permission to launch the SWI Prolog process. Unless your system is unusually locked down, this should be allowed by default.  If not, you'll need to set the appropriate permissions to allow this.
-
-## Prolog Language Differences from the Top Level
-
-The language server is designed to act like using the "top level" prompt of SWI Prolog itself (i.e. the "?-" prompt).  If you've built the Prolog part of your application by loading code, running it and debugging it using the normal SWI Prolog top level, integrating it with your native language should be straightforward: simply run the commands you'd normally run on the top level, but now run them using the query APIs provided by the library built for your target language. Those APIs will allow you to send the exact same text to Prolog and they should execute the same way.
-
-While the query functionality of the language server does run on a thread, it will always be the *same* thread, and, if you use a single connection, it will only allow queries to be run one at a time, just like the top level. Of course, the queries you send can launch threads, just like the top level, so you are not limited to a single threaded application. There are a few differences from the top level, however:
-
-    - Normally, the SWI Prolog top level runs all user code in the context of a built-in module called "user", as does the language server. However, the top level allows this to be changed using the module/1 predicate. This predicate has no effect in the language server.
-    - Predefined streams like user_input/0 are initially bound to the standard operating system I/O streams (like STDIN) and, since the Prolog process is running invisibly, will obviously not work as expected. Those streams can be changed, however, by issuing commands using system predicates as defined in the SWI Prolog documentation.
-    - Every connection to the language server runs in its own thread, so opening two connections from an application means you are running multithreaded code.
-
-The basic rule to remember is: any predicates designed to interact with or change the default behavior of the top level itself probably won't have any effect.
-
-
-## Embedded Mode: Integrating the Language Server Into a New Programming Language
-The most common way to use the language server is to find a library that wraps and exposes it as a native part of another programming language such as Python. This section describes how to build one if there isn't yet a library for your language.  To do this, you'll need to familiarize yourself with the server protocol as described in the `language_server/1` documentation. However, to give an idea of the scope of work required, below is a typical interaction done (invisibly to the user) in the implementation of any programming language library:
-
-
-     1. Launch the SWI Prolog process using (along with any other options the user requests): =|swipl /<path>/language_server.pl --write_connection_values=true|=.  To work, the `swipl` Prolog executable will need to be on the path or specified in the command. This launches the server and writes the chosen port and password to STDOUT.  This way of launching invokes a (non-exported) predicate called `main/1` that turns off the `int` (i.e. Interrupt/SIGINT) signal to Prolog. This is because some languages (such as Python) use that signal during debugging and it would be otherwise passed to the client Prolog process and switch it into the debugger.  Also note that Options are specified using the =|--<option name>=<value>|= syntax on the command line. =|<value>|= should be surrounded with double quotation marks when it is a value like a password with spaces that could confuse the command line. See documentation for how to format the command line and the other available options in the `language_server/1` Options documentation.
-     2. Read the SWI Prolog STDOUT to retrieve the TCP/IP port and password. They are sent in that order, delimited by '\n'.
-
-~~~
-$ swipl language_server.pl --write_connection_values=true
-54501
-185786669688147744015809740744888120144
-~~~
-
-    Now the server is started. To create a connection:
-
-     3. Use the language's TCP/IP sockets library to open a socket on the specified port of localhost and send the password as a message. Messages to and from the server are in the form =|<stringByteLength>.\n<stringBytes>.\n |= where `stringByteLength` includes the =|.\n|= from the string. For example: =|7.\nhello.\n|= More information on the message format is in the `language_server/1` documentation.
-     4. Listen on the socket for a response message of `true([[threads(Comm_Thread_ID, Goal_Thread_ID)]])` (which will be in JSON form) indicating successful creation of the connection.  `Comm_Thread_ID` and `Goal_Thread_ID` are the two threads that are used for the connection. They are sent solely for monitoring and debugging purposes.
-
-We can test using the Unix tool `netcat` (also available for windows) to interactively connect to the server. In `netcat`: hitting enter sends =|\n|= and the server responses are recorded inline.  I've indented the server responses below to clarify.
-
-We'll use the port and password that were sent to STDOUT above:
-~~~
-$ nc 127.0.0.1 54501
-41.
-185786669688147744015809740744888120144.
-    173.
-    {
-      "args": [
-        [
-          [
-        {
-          "args": ["language_server1_conn2_comm", "language_server1_conn2_goal" ],
-          "functor":"threads"
-        }
-          ]
-        ]
-      ],
-      "functor":"true"
-    }
-
-~~~
-
- Now the connection is established. To run queries and shutdown:
-
-     5. Any of the messages described in the `language_server/1` documentation can now be sent to run queries and retrieve their answers. For example, send the message `run(atom(a), -1)` to run the synchronous query `atom(a)` with no timeout and wait for the response message. It will be `true([[]])` (in JSON form).
-     6. Shutting down the connection is accomplished by sending the message `close`, waiting for the response message of `true([[]])` (in JSON form), and then closing the socket using the socket API of the language.  If the socket is closed (or fails) before the `close` message is sent, the default behavior of the server is to exit the SWI Prolog process to avoid leaving the process around.  This is to support scenarios where the user is running and halting their language debugger without cleanly exiting.
-     7. Shutting down the launched server is accomplished by sending the `quit` message and waiting for the response message of `true([[]])` (in JSON form). This will cause an orderly shutdown and exit of the process.
-
-Continuing with the `netcat` session (`quit` isn't shown since `close` closes the connection):
-~~~
-18.
-run(atom(a), -1).
-    39.
-    {"args": [ [ [] ] ], "functor":"true"}
-7.
-close.
-    39.
-    {"args": [ [ [] ] ], "functor":"true"}
-~~~
-Note that Unix Domain Sockets can be used instead of a TCP/IP port. How to do this is described in the `language_server/1` Options documentation.
-
-Here's the same example running in the R language. Note that this is *not* an example of how to use language_server from R, it just shows the first code a developer would write as they begin to build a nice library to connect R to Prolog using the language_server:
-~~~
-# Server run with: swipl language_server.pl --port=40001 --password=123
-# R Source
-print("# Establish connection")
-
-sck = make.socket('localhost', 40001)
-
-print("# Send password")
-
-write.socket(sck, '5.\n') # message length
-
-write.socket(sck, '123.\n') # password
-
-print(read.socket(sck))
-
-print("# Run query")
-
-query = 'run(member(X, [1, 2, 3]), -1).\n'
-
-write.socket(sck, paste(nchar(query), '.\n', sep='')) # message length
-
-write.socket(sck, query) # query
-
-print(read.socket(sck))
-
-print("# Close session")
-
-close.socket(sck)
-~~~
-And here's the output:
-~~~
-[1] "# Establish connection"
-
-[1] "# Send password"
-
-[1] "172.\n{\n "args": [\n [\n [\n\t{\n\t "args": ["language_server1_conn1_comm", "language_server1_conn1_goal" ],\n\t "functor":"threads"\n\t}\n ]\n ]\n ],\n "functor":"true"\n}"
-
-[1] "# Run query"
-
-[1] "188.\n{\n "args": [\n [\n [ {"args": ["X", 1 ], "functor":"="} ],\n [ {"args": ["X", 2 ], "functor":"="} ],\n [ {"args": ["X", 3 ], "functor":"="} ]\n ]\n ],\n "functor":"true"\n}"
-
-[1] "# Close session"
-~~~
-
-Other notes about creating a new library to communicate with the language server:
-- Please use the Python library as a reference when designing your language library and use similar names and approaches where appropriate. This will give familiarity and faster learning for users that use more than one language.
-- Use the `debug/1` predicate described in the `language_server/1` documentation to turn on debug tracing. It can really speed up debugging.
-- Read the STDOUT and STDERR output of the SWI Prolog process and output them to the debugging console of the native language to help users debug their Prolog application.
-
-## Standalone Mode: Debugging Prolog Code Used in an Application
-When using the language server from another language, debugging the Prolog code itself can often be done by viewing traces from the Prolog native `writeln/1` or `debug/3` predicates and viewing their output in the debugger of the native language used.  Sometimes an issue occurs deep in an application and a way to run the application in the native language while setting breakpoints and viewing traces in Prolog itself is the best approach. Standalone mode is designed for this scenario.
-
-As the language server is a multithreaded application, debugging the running code requires using the multithreaded debugging features of SWI Prolog as described in the section on "Debugging Threads" in the SWI Prolog documentation. A typical flow for Standalone Mode is:
-
-    1. Launch SWI Prolog and call the `language_server/1` predicate specifying a port and password. Use the `tdebug/0` predicate to set all threads to debugging mode like this: `tdebug, language_server(port(4242), password(debugnow))`.
-    2. Set the port and password in the initialization API in the native language being used.
-    3. Launch the application and go through the steps to reproduce the issue.
-
-
-At this point, all of the multi-threaded debugging tools in SWI Prolog are available for debugging the problem. If the issue is an unexpected exception, the exception debugging features of SWI Prolog can be used to break on the exception and examine the state of the application.  If it is a logic error, breakpoints can be set to halt at the point where the problem appears, etc.
-
-Note that, while using a library to access Prolog will normally end and restart the process between runs of the code, running the server standalone doesn't clear state between launches of the application.  You'll either need to relaunch between runs or build your application so that it does the initialization at startup.
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+    FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+    COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+    INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+    BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+    CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+    LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+    ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+    POSSIBILITY OF SUCH DAMAGE.
 */
 
 /**
@@ -188,8 +47,8 @@ Once started, the server listens for TCP/IP or Unix Domain Socket connections an
 
 For debugging, the server outputs traces using the `debug/3` predicate so that the server operation can be observed by using the `debug/1` predicate. Run the following commands to see them:
 
-- `debug(prologServer(protocol))`: Traces protocol messages to show the flow of commands and connections.  It is designed to avoid filling the screen with large queries and results to make it easier to read.
-- `debug(prologServer(query))`: Traces messages that involve each query and its results. Therefore it can be quite verbose depending on the query.
+- `debug(language_server(protocol))`: Traces protocol messages to show the flow of commands and connections.  It is designed to avoid filling the screen with large queries and results to make it easier to read.
+- `debug(language_server(query))`: Traces messages that involve each query and its results. Therefore it can be quite verbose depending on the query.
 
 ## Options
 Options is a list containing any combination of the following options. When used in the Prolog top level (i.e. in Standalone Mode), these are specified as normal Prolog options like this:
@@ -198,7 +57,7 @@ language_server([unix_domain_socket(Socket), password('a password')])
 ~~~
 When using Embedded mode (i.e. launching the server from the command line when integrating into another language) they are passed using the same name but as normal command line arguments like this:
 ~~~
-swipl /<path>/language_server.pl --write_connection_values=true --password="a password" --create_unix_domain_socket=true
+swipl --quiet -g language_server -t halt -- --write_connection_values=true --password="a password" --create_unix_domain_socket=true
 ~~~
 Note the use of quotes around values that could confuse command line processing like spaces (e.g. "a password") and that `unix_domain_socket(Variable)` is written as =|--create_unix_domain_socket=true|= on the command line. See below for more information.
 
@@ -396,7 +255,7 @@ Response:
 % that can be cancelled
 :- dynamic(safe_to_cancel/1).
 
-% Password is carefully constructed to be a strong (not an atom) so that it is not
+% Password is carefully constructed to be a string (not an atom) so that it is not
 % globally visible
 % Add ".\n" to the password since it will be added by the message when received
 language_server(Options) :-
@@ -436,11 +295,27 @@ language_server(Options) :-
     ),
     Server_Goal = (
                     catch(server_thread(Server_Thread_ID, Socket, Client_Address, Final_Password, Connection_Count, Encoding, Query_Timeout, Exit_Main_On_Failure), error(E1, E2), true),
-                    debug(prologServer(protocol), "Stopped server on thread: ~w due to exception: ~w", [Server_Thread_ID, error(E1, E2)])
+                    debug(language_server(protocol), "Stopped server on thread: ~w due to exception: ~w", [Server_Thread_ID, error(E1, E2)])
                  ),
     start_server_thread(Run_Server_On_Thread, Server_Thread_ID, Server_Goal, Unix_Domain_Socket_Path, Unix_Domain_Socket_Path_And_File).
 
-:- initialization(main, main).
+
+%! language_server is semidet.
+%Main entry point for running the Language Server in Embedded Mode and designed to be called from the command line. Embedded Mode is used when launching the Language Server as an embedded part of another language (e.g. Python). Calling language_server/0 from Prolog interactively is not recommended as it depends on Prolog exiting to stop the server, instead use language_server/1 for interactive use.
+%
+%To launch embedded mode:
+%
+%~~~
+%swipl --quiet -g language_server -t halt -- --write_connection_values=true
+%~~~
+%
+%This will start SWI Prolog and invoke the language_server/0 predicate and exit the process when that predicate stops. Any command line arguments after the standalone `--` will be passed as Options. These are the same Options that language_server/1 accepts and are passed to it directly. Some options are expressed differently due to command line limitations, see language_server/1 Options for more information.
+%
+%Any Option values that causes issues during command line parsing (such as spaces) should be passed with =|""|= like this:
+%
+%~~~
+%swipl --quiet -g language_server -t halt -- --write_connection_values=true --password="HGJ SOWLWW WNDSJD"
+%~~~
 
 
 % Turn off int signal when running in embedded mode so the client language
@@ -450,7 +325,8 @@ language_server(Options) :-
 % create_unix_domain_socket=true/false is only used as a command line argument
 % since it doesn't seem possible to pass create_unix_domain_socket=_ on the command line
 % and have it interpreted as a variable.
-main(Argv) :-
+language_server :-
+    current_prolog_flag(os_argv, Argv),
     argv_options(Argv, _Args, Options),
     append(Options, [exit_main_on_failure(true)], Options1),
     select_option(create_unix_domain_socket(Create_Unix_Domain_Socket), Options1, Options2, false),
@@ -467,8 +343,10 @@ main(Argv) :-
     on_signal(int, _, quit),
     thread_get_message(quit_language_server).
 
+
 quit(_) :-
     thread_send_message(main, quit_language_server).
+
 
 %! stop_language_server(+Server_Thread_ID:atom) is det.
 %
@@ -484,17 +362,17 @@ stop_language_server(Server_Thread_ID) :-
     % First shut down any matching servers to stop new connections
     forall(retract(language_server_thread(Server_Thread_ID, _, Socket)),
         (
-            debug(prologServer(protocol), "Found server: ~w", [Server_Thread_ID]),
+            debug(language_server(protocol), "Found server: ~w", [Server_Thread_ID]),
             catch(tcp_close_socket(Socket), Socket_Exception, true),
             abortSilentExit(Server_Thread_ID, Server_Thread_Exception),
-            debug(prologServer(protocol), "Stopped server thread: ~w, socket_close_exception(~w), stop_thread_exception(~w)", [Server_Thread_ID, Socket_Exception, Server_Thread_Exception])
+            debug(language_server(protocol), "Stopped server thread: ~w, socket_close_exception(~w), stop_thread_exception(~w)", [Server_Thread_ID, Socket_Exception, Server_Thread_Exception])
         )),
     forall(retract(language_server_worker_threads(Server_Thread_ID, Communication_Thread_ID, Goal_Thread_ID)),
         (
             abortSilentExit(Communication_Thread_ID, CommunicationException),
-            debug(prologServer(protocol), "Stopped server: ~w communication thread: ~w, exception(~w)", [Server_Thread_ID, Communication_Thread_ID, CommunicationException]),
+            debug(language_server(protocol), "Stopped server: ~w communication thread: ~w, exception(~w)", [Server_Thread_ID, Communication_Thread_ID, CommunicationException]),
             abortSilentExit(Goal_Thread_ID, Goal_Exception),
-            debug(prologServer(protocol), "Stopped server: ~w goal thread: ~w, exception(~w)", [Server_Thread_ID, Goal_Thread_ID, Goal_Exception])
+            debug(language_server(protocol), "Stopped server: ~w goal thread: ~w, exception(~w)", [Server_Thread_ID, Goal_Thread_ID, Goal_Exception])
         )).
 
 
@@ -505,11 +383,11 @@ start_server_thread(Run_Server_On_Thread, Server_Thread_ID, Server_Goal, Unix_Do
                                                      detach_if_expected(Server_Thread_ID)
                                                     ))
                                           ]),
-            debug(prologServer(protocol), "Started server on thread: ~w", [Server_Thread_ID])
+            debug(language_server(protocol), "Started server on thread: ~w", [Server_Thread_ID])
         )
     ;   (   Server_Goal,
             delete_unix_domain_socket_file(Unix_Domain_Socket_Path, Unix_Domain_Socket_Path_And_File),
-            debug(prologServer(protocol), "Halting.", [])
+            debug(language_server(protocol), "Halting.", [])
         )
     ).
 
@@ -531,7 +409,7 @@ delete_unix_domain_socket_file(Unix_Domain_Socket_Path, Unix_Domain_Socket_Path_
 % Delete the socket file in case it is already around so that the same name can be reused
 bind_socket(Server_Thread_ID, Unix_Domain_Socket_Path_And_File, Port, Socket, Client_Address) :-
     (   nonvar(Unix_Domain_Socket_Path_And_File)
-    ->  debug(prologServer(protocol), "Using Unix domain socket name: ~w", [Unix_Domain_Socket_Path_And_File]),
+    ->  debug(language_server(protocol), "Using Unix domain socket name: ~w", [Unix_Domain_Socket_Path_And_File]),
         unix_domain_socket(Socket),
         catch(delete_file(Unix_Domain_Socket_Path_And_File), error(_, _), true),
         tcp_bind(Socket, Unix_Domain_Socket_Path_And_File),
@@ -539,7 +417,7 @@ bind_socket(Server_Thread_ID, Unix_Domain_Socket_Path_And_File, Port, Socket, Cl
     ;   (   tcp_socket(Socket),
             tcp_setopt(Socket, reuseaddr),
             tcp_bind(Socket, '127.0.0.1':Port),
-            debug(prologServer(protocol), "Using TCP/IP port: ~w", ['127.0.0.1':Port]),
+            debug(language_server(protocol), "Using TCP/IP port: ~w", ['127.0.0.1':Port]),
             Client_Address = Port
         )
     ),
@@ -565,7 +443,7 @@ send_client_startup_data(Write_Connection_Values, Stream, Unix_Domain_Socket_Pat
 % Listen for connections and create a connection for each in its own communication thread
 % Uses tail recursion to ensure the stack doesn't grow
 server_thread(Server_Thread_ID, Socket, Address, Password, Connection_Count, Encoding, Query_Timeout, Exit_Main_On_Failure) :-
-    debug(prologServer(protocol), "Listening on address: ~w", [Address]),
+    debug(language_server(protocol), "Listening on address: ~w", [Address]),
     tcp_listen(Socket, Connection_Count),
     tcp_open_socket(Socket, AcceptFd, _),
     create_connection(Server_Thread_ID, AcceptFd, Password, Encoding, Query_Timeout, Exit_Main_On_Failure),
@@ -577,9 +455,9 @@ server_thread(Server_Thread_ID, Socket, Address, Password, Connection_Count, Enc
 % First create the goal thread to avoid a race condition where the communication
 % thread tries to queue a goal before it is created
 create_connection(Server_Thread_ID, AcceptFd, Password, Encoding, Query_Timeout, Exit_Main_On_Failure) :-
-    debug(prologServer(protocol), "Waiting for client connection...", []),
+    debug(language_server(protocol), "Waiting for client connection...", []),
     tcp_accept(AcceptFd, Socket, _Peer),
-    debug(prologServer(protocol), "Client connected", []),
+    debug(language_server(protocol), "Client connected", []),
     gensym('conn', Connection_Base),
     atomic_list_concat([Server_Thread_ID, "_", Connection_Base, '_comm'], Thread_Alias),
     atomic_list_concat([Server_Thread_ID, "_", Connection_Base, '_goal'], Goal_Alias),
@@ -604,11 +482,11 @@ goal_thread(Respond_To_Thread_ID) :-
     thread_self(Self_ID),
     throw_if_testing(Self_ID),
     thread_get_message(Self_ID, goal(Goal, Binding_List, Query_Timeout, Find_All)),
-    debug(prologServer(query), "Received Findall = ~w, Query_Timeout = ~w, binding list: ~w, goal: ~w", [Find_All, Query_Timeout, Binding_List, Goal]),
+    debug(language_server(query), "Received Findall = ~w, Query_Timeout = ~w, binding list: ~w, goal: ~w", [Find_All, Query_Timeout, Binding_List, Goal]),
     (   Find_All
-    ->  One_Answer_Goal = findall(Binding_List, @(Goal, user), Answers)
+    ->  One_Answer_Goal = findall(Binding_List, @(user:Goal, user), Answers)
     ;
-        One_Answer_Goal = ( @(Goal, user),
+        One_Answer_Goal = ( @(user:Goal, user),
                             Answers = [Binding_List],
                             send_next_result(Respond_To_Thread_ID, Answers, _, Find_All)
                           )
@@ -636,7 +514,7 @@ goal_thread(Respond_To_Thread_ID) :-
 % Used only for testing unhandled exceptions outside of the "safe zone"
 throw_if_testing(Self_ID) :-
     (   thread_peek_message(Self_ID, testThrow(Test_Exception))
-    ->  (   debug(prologServer(query), "TESTING: Throwing test exception: ~w", [Test_Exception]),
+    ->  (   debug(language_server(query), "TESTING: Throwing test exception: ~w", [Test_Exception]),
             throw(Test_Exception)
         )
     ;   true
@@ -673,7 +551,7 @@ communication_thread(Password, Socket, Encoding, Server_Thread_ID, Goal_Thread_I
     thread_self(Self_ID),
     (   (
             catch(communication_thread_listen(Password, Socket, Encoding, Server_Thread_ID, Goal_Thread_ID, Query_Timeout), error(Serve_Exception1, Serve_Exception2), true),
-            debug(prologServer(protocol), "Session finished. Communication thread exception: ~w", [error(Serve_Exception1, Serve_Exception2)]),
+            debug(language_server(protocol), "Session finished. Communication thread exception: ~w", [error(Serve_Exception1, Serve_Exception2)]),
             abortSilentExit(Goal_Thread_ID, _),
             retractall(language_server_worker_threads(Server_Thread_ID, Self_ID, Goal_Thread_ID))
         )
@@ -681,10 +559,10 @@ communication_thread(Password, Socket, Encoding, Server_Thread_ID, Goal_Thread_I
     ;   Halt = true
     ),
     (   Halt
-    ->  (   debug(prologServer(protocol), "Ending session and halting Prolog server due to thread ~w: exception(~w)", [Self_ID, error(Serve_Exception1, Serve_Exception2)]),
+    ->  (   debug(language_server(protocol), "Ending session and halting Prolog server due to thread ~w: exception(~w)", [Self_ID, error(Serve_Exception1, Serve_Exception2)]),
             quit(_)
         )
-    ;   (   debug(prologServer(protocol), "Ending session ~w", [Self_ID]),
+    ;   (   debug(language_server(protocol), "Ending session ~w", [Self_ID]),
             catch(tcp_close_socket(Socket), error(_, _), true)
         )
     ).
@@ -702,17 +580,17 @@ communication_thread_listen(Password, Socket, Encoding, Server_Thread_ID, Goal_T
     set_stream(Write_Stream, encoding(Encoding)),
     read_message(Read_Stream, Sent_Password),
     (   Password == Sent_Password
-    ->  (   debug(prologServer(protocol), "Password matched.", []),
+    ->  (   debug(language_server(protocol), "Password matched.", []),
             thread_self(Self_ID),
             reply(Write_Stream, true([[threads(Self_ID, Goal_Thread_ID)]]))
         )
-    ;   (   debug(prologServer(protocol), "Password mismatch, failing. ~w", [Sent_Password]),
+    ;   (   debug(language_server(protocol), "Password mismatch, failing. ~w", [Sent_Password]),
             reply_error(Write_Stream, password_mismatch),
             throw(password_mismatch)
         )
     ),
     process_language_server_messages(Read_Stream, Write_Stream, Goal_Thread_ID, Query_Timeout),
-    debug(prologServer(protocol), "Session finished.", []).
+    debug(language_server(protocol), "Session finished.", []).
 
 
 % process_language_server_messages implements the main interface to the language server.
@@ -732,11 +610,11 @@ communication_thread_listen(Password, Socket, Encoding, Server_Thread_ID, Goal_T
 process_language_server_messages(Read_Stream, Write_Stream, Goal_Thread_ID, Query_Timeout) :-
     process_language_server_message(Read_Stream, Write_Stream, Goal_Thread_ID, Query_Timeout, Command),
     (   Command == close
-    ->  (   debug(prologServer(protocol), "Command: close. Client closed the connection cleanly.", []),
+    ->  (   debug(language_server(protocol), "Command: close. Client closed the connection cleanly.", []),
             true
         )
     ;   (   Command == quit
-        ->  (   debug(prologServer(protocol), "Command: quit.", []),
+        ->  (   debug(language_server(protocol), "Command: quit.", []),
                 false
             )
         ;
@@ -762,7 +640,7 @@ process_language_server_messages(Read_Stream, Write_Stream, Goal_Thread_ID, Quer
 % since errors should be sent to the client
 % It can throw if there are communication failures, though.
 process_language_server_message(Read_Stream, Write_Stream, Goal_Thread_ID, Query_Timeout, Command) :-
-    debug(prologServer(protocol), "Waiting for next message ...", []),
+    debug(language_server(protocol), "Waiting for next message ...", []),
     (   state_receive_raw_message(Read_Stream, Message_String)
     ->  (   state_parse_command(Write_Stream, Message_String, Command, Binding_List)
         ->  state_process_command(Write_Stream, Goal_Thread_ID, Query_Timeout, Command, Binding_List)
@@ -778,7 +656,7 @@ process_language_server_message(Read_Stream, Write_Stream, Goal_Thread_ID, Query
 %   exception: communication failure OR thread asked to exit
 state_receive_raw_message(Read, Command_String) :-
     read_message(Read, Command_String),
-    debug(prologServer(protocol), "Valid message: ~w", [Command_String]).
+    debug(language_server(protocol), "Valid message: ~w", [Command_String]).
 
 
 % state_parse_command: attempt to parse the message string into a valid command
@@ -793,7 +671,7 @@ state_receive_raw_message(Read, Command_String) :-
 state_parse_command(Write_Stream, Command_String, Parsed_Command, Binding_List) :-
     (   catch(read_term_from_atom(Command_String, Parsed_Command, [variable_names(Binding_List), module(user)]), Parse_Exception, true)
     ->  (   var(Parse_Exception)
-        ->  debug(prologServer(protocol), "Parse Success: ~w", [Parsed_Command])
+        ->  debug(language_server(protocol), "Parse Success: ~w", [Parsed_Command])
         ;   (   reply_error(Write_Stream, Parse_Exception),
                 fail
             )
@@ -817,15 +695,15 @@ state_parse_command(Write_Stream, Command_String, Parsed_Command, Binding_List) 
 % See language_server(Options) documentation
 state_process_command(Stream, Goal_Thread_ID, Query_Timeout, run(Goal, Timeout), Binding_List) :-
     !,
-    debug(prologServer(protocol), "Command: run/1. Timeout: ~w", [Timeout]),
+    debug(language_server(protocol), "Command: run/1. Timeout: ~w", [Timeout]),
     repeat_until_false((
             query_in_progress(Goal_Thread_ID),
-            debug(prologServer(protocol), "Draining unretrieved result for ~w", [Goal_Thread_ID]),
+            debug(language_server(protocol), "Draining unretrieved result for ~w", [Goal_Thread_ID]),
             heartbeat_until_result(Goal_Thread_ID, Stream, Unused_Answer),
-            debug(prologServer(protocol), "Drained result for ~w", [Goal_Thread_ID]),
-            debug(prologServer(query), "    Discarded answer: ~w", [Unused_Answer])
+            debug(language_server(protocol), "Drained result for ~w", [Goal_Thread_ID]),
+            debug(language_server(query), "    Discarded answer: ~w", [Unused_Answer])
         )),
-    debug(prologServer(protocol), "All previous results drained", []),
+    debug(language_server(protocol), "All previous results drained", []),
     send_goal_to_thread(Stream, Goal_Thread_ID, Query_Timeout, Timeout, Goal, Binding_List, true),
     heartbeat_until_result(Goal_Thread_ID, Stream, Answers),
     reply_with_result(Goal_Thread_ID, Stream, Answers).
@@ -835,16 +713,16 @@ state_process_command(Stream, Goal_Thread_ID, Query_Timeout, run(Goal, Timeout),
 % See notes in run(Goal, Timeout) re: draining previous query
 state_process_command(Stream, Goal_Thread_ID, Query_Timeout, run_async(Goal, Timeout, Find_All), Binding_List) :-
     !,
-    debug(prologServer(protocol), "Command: run_async/1.", []),
-    debug(prologServer(query),  "   Goal: ~w", [Goal]),
+    debug(language_server(protocol), "Command: run_async/1.", []),
+    debug(language_server(query),  "   Goal: ~w", [Goal]),
     repeat_until_false((
             query_in_progress(Goal_Thread_ID),
-            debug(prologServer(protocol), "Draining unretrieved result for ~w", [Goal_Thread_ID]),
+            debug(language_server(protocol), "Draining unretrieved result for ~w", [Goal_Thread_ID]),
             heartbeat_until_result(Goal_Thread_ID, Stream, Unused_Answer),
-            debug(prologServer(protocol), "Drained result for ~w", [Goal_Thread_ID]),
-            debug(prologServer(query), "    Discarded answer: ~w", [Unused_Answer])
+            debug(language_server(protocol), "Drained result for ~w", [Goal_Thread_ID]),
+            debug(language_server(query), "    Discarded answer: ~w", [Unused_Answer])
             )),
-    debug(prologServer(protocol), "All previous results drained", []),
+    debug(language_server(protocol), "All previous results drained", []),
     send_goal_to_thread(Stream, Goal_Thread_ID, Query_Timeout, Timeout, Goal, Binding_List, Find_All),
     reply(Stream, true([[]])).
 
@@ -852,19 +730,19 @@ state_process_command(Stream, Goal_Thread_ID, Query_Timeout, run_async(Goal, Tim
 % See language_server(Options) documentation for documentation
 state_process_command(Stream, Goal_Thread_ID, _, async_result(Timeout), _) :-
     !,
-    debug(prologServer(protocol), "Command: async_result, timeout: ~w.", [Timeout]),
+    debug(language_server(protocol), "Command: async_result, timeout: ~w.", [Timeout]),
     (   once((var(Timeout) ; Timeout == -1))
     ->  Options = []
     ;   Options = [timeout(Timeout)]
     ),
     (   query_in_progress(Goal_Thread_ID)
-    ->  (   (   debug(prologServer(protocol), "Pending query results exist for ~w", [Goal_Thread_ID]),
+    ->  (   (   debug(language_server(protocol), "Pending query results exist for ~w", [Goal_Thread_ID]),
                 get_next_result(Goal_Thread_ID, Options, Result)
             )
         ->  reply_with_result(Goal_Thread_ID, Stream, Result)
         ;   reply_error(Stream, result_not_available)
         )
-   ;    (   debug(prologServer(protocol), "No pending query results for ~w", [Goal_Thread_ID]),
+   ;    (   debug(language_server(protocol), "No pending query results for ~w", [Goal_Thread_ID]),
             reply_error(Stream, no_query)
         )
    ).
@@ -878,17 +756,17 @@ state_process_command(Stream, Goal_Thread_ID, _, async_result(Timeout), _) :-
 % or was never running.
 state_process_command(Stream, Goal_Thread_ID, _, cancel_async, _) :-
     !,
-    debug(prologServer(protocol), "Command: cancel_async/0.", []),
+    debug(language_server(protocol), "Command: cancel_async/0.", []),
     with_mutex(Goal_Thread_ID, (
         (   safe_to_cancel(Goal_Thread_ID)
         ->  (   thread_signal(Goal_Thread_ID, throw(cancel_goal)),
                 reply(Stream, true([[]]))
             )
         ;   (   query_in_progress(Goal_Thread_ID)
-            ->  (   debug(prologServer(protocol), "Pending query results exist for ~w", [Goal_Thread_ID]),
+            ->  (   debug(language_server(protocol), "Pending query results exist for ~w", [Goal_Thread_ID]),
                     reply(Stream, true([[]]))
                 )
-            ;   (   debug(prologServer(protocol), "No pending query results for ~w", [Goal_Thread_ID]),
+            ;   (   debug(language_server(protocol), "No pending query results for ~w", [Goal_Thread_ID]),
                     reply_error(Stream, no_query)
                 )
             )
@@ -901,7 +779,7 @@ state_process_command(Stream, Goal_Thread_ID, _, cancel_async, _) :-
 % get the goal thread to process the exception
 state_process_command(Stream, Goal_Thread_ID, Query_Timeout, testThrowGoalThread(Test_Exception), Binding_List) :-
     !,
-    debug(prologServer(protocol), "TESTING: requested goal thread unhandled exception", []),
+    debug(language_server(protocol), "TESTING: requested goal thread unhandled exception", []),
     thread_send_message(Goal_Thread_ID, testThrow(Test_Exception)),
     state_process_command(Stream, Goal_Thread_ID, Query_Timeout, run(true, -1), Binding_List).
 
@@ -918,7 +796,7 @@ state_process_command(Stream, _, _, quit, _) :-
 
 %  Send an exception if the command is not known
 state_process_command(Stream, _, _, Command, _) :-
-    debug(prologServer(protocol), "Unknown command ~w", [Command]),
+    debug(language_server(protocol), "Unknown command ~w", [Command]),
     reply_error(Stream, unknownCommand).
 
 
@@ -929,8 +807,8 @@ state_process_command(Stream, _, _, Command, _) :-
 % Tail recurse to not grow the stack
 heartbeat_until_result(Goal_Thread_ID, Stream, Answers) :-
     (   get_next_result(Goal_Thread_ID, [timeout(2)], Answers)
-    ->  debug(prologServer(query), "Received answer from goal thread: ~w", [Answers])
-    ;   (   debug(prologServer(protocol), "heartbeat...", []),
+    ->  debug(language_server(query), "Received answer from goal thread: ~w", [Answers])
+    ;   (   debug(language_server(protocol), "heartbeat...", []),
             write_heartbeat(Stream),
             heartbeat_until_result(Goal_Thread_ID, Stream, Answers)
         )
@@ -962,7 +840,7 @@ send_goal_to_thread(Stream, Goal_Thread_ID, Default_Timeout, Timeout, Goal, Bind
     ->  Binding_List = []
     ;   true
     ),
-    debug(prologServer(query),  "Sending to goal thread with timeout = ~w: ~w", [Timeout, Goal]),
+    debug(language_server(query),  "Sending to goal thread with timeout = ~w: ~w", [Timeout, Goal]),
     assert(query_in_progress(Goal_Thread_ID)),
     catch(thread_send_message(Goal_Thread_ID, goal(Goal, Binding_List, Timeout, Find_All)), Send_Message_Exception, true),
     (   var(Send_Message_Exception)
@@ -976,13 +854,13 @@ send_goal_to_thread(Stream, Goal_Thread_ID, Default_Timeout, Timeout, Goal, Bind
 % Send a result from the goal thread to the communication thread in its queue
 send_next_result(Respond_To_Thread_ID, Answer, Exception_In_Goal, Find_All) :-
     (   var(Exception_In_Goal)
-    ->  (   (   debug(prologServer(query), "Sending result of goal to communication thread, Result: ~w", [Answer]),
+    ->  (   (   debug(language_server(query), "Sending result of goal to communication thread, Result: ~w", [Answer]),
                 Answer == []
             )
         ->  thread_send_message(Respond_To_Thread_ID, result(false, Find_All))
         ;   thread_send_message(Respond_To_Thread_ID, result(true(Answer), Find_All))
         )
-    ;   (   debug(prologServer(query), "Sending result of goal to communication thread, Exception: ~w", [Exception_In_Goal]),
+    ;   (   debug(language_server(query), "Sending result of goal to communication thread, Exception: ~w", [Exception_In_Goal]),
             thread_send_message(Respond_To_Thread_ID, result(error(Exception_In_Goal), Find_All))
         )
     ).
@@ -998,11 +876,11 @@ get_next_result(Goal_Thread_ID, Options, Answers) :-
     thread_self(Self_ID),
     thread_get_message(Self_ID, result(Answers, Find_All), Options),
     (   Find_All
-    ->  (   debug(prologServer(protocol), "Query completed and answers drained for findall ~w", [Goal_Thread_ID]),
+    ->  (   debug(language_server(protocol), "Query completed and answers drained for findall ~w", [Goal_Thread_ID]),
             retractall(query_in_progress(Goal_Thread_ID))
         )
     ;   (   Answers = error(_)
-        ->  (   debug(prologServer(protocol), "Query completed and answers drained for non-findall ~w", [Goal_Thread_ID]),
+        ->  (   debug(language_server(protocol), "Query completed and answers drained for non-findall ~w", [Goal_Thread_ID]),
                 retractall(query_in_progress(Goal_Thread_ID))
             )
         ;   true
@@ -1023,7 +901,7 @@ reply_with_result(_, Stream, Result) :-
 % Reply with a normal term
 % Convert term to an actual JSON string
 reply(Stream, Term) :-
-    debug(prologServer(query), "Responding with Term: ~w", [Term]),
+    debug(language_server(query), "Responding with Term: ~w", [Term]),
     term_to_json_string(Term, Json_String),
     write_message(Stream, Json_String).
 
@@ -1117,13 +995,13 @@ repeat_until_false(_).
 %   where the call might not return for a long time.  Do a timeout for those cases.
 abortSilentExit(Thread_ID, Exception) :-
     catch(thread_signal(Thread_ID, abort), error(Exception, _), true),
-    debug(prologServer(protocol), "Attempting to abort thread: ~w. thread_signal_exception: ~w", [Thread_ID, Exception]).
+    debug(language_server(protocol), "Attempting to abort thread: ~w. thread_signal_exception: ~w", [Thread_ID, Exception]).
 % Workaround SWI Prolog bug: https://github.com/SWI-Prolog/swipl-devel/issues/852 by not joining
 % The workaround just stops joining the aborted thread, so an inert record will be left if thread_property/2 is called.
 %    ,
 %    (   once((var(Exception) ; catch(thread_property(Thread_ID, status(exception('$aborted'))), error(_, _), true)))
 %    ->  (   catch(call_with_time_limit(4, thread_join(Thread_ID)), error(JoinException1, JoinException2), true),
-%            debug(prologServer(protocol), "thread_join attempted because thread: ~w exit was expected, exception: ~w", [Thread_ID, error(JoinException1, JoinException2)])
+%            debug(language_server(protocol), "thread_join attempted because thread: ~w exit was expected, exception: ~w", [Thread_ID, error(JoinException1, JoinException2)])
 %        )
 %    ;   true
 %    ).
@@ -1137,9 +1015,9 @@ abortSilentExit(Thread_ID, Exception) :-
 % the goal thread is always aborted by the communication thread using abortSilentExit.
 detach_if_expected(Thread_ID) :-
     thread_property(Thread_ID, status(Status)),
-    debug(prologServer(protocol), "Thread ~w exited with status ~w", [Thread_ID, Status]),
+    debug(language_server(protocol), "Thread ~w exited with status ~w", [Thread_ID, Status]),
     (   once((Status = true ; Status = false))
-    ->  (   debug(prologServer(protocol), "Expected thread status, detaching thread ~w", [Thread_ID]),
+    ->  (   debug(language_server(protocol), "Expected thread status, detaching thread ~w", [Thread_ID]),
             thread_detach(Thread_ID)
         )
     ;   true
@@ -1147,7 +1025,7 @@ detach_if_expected(Thread_ID) :-
 
 
 write_output_to_file(File) :-
-    debug(prologServer(protocol), "Writing all STDOUT and STDERR to file:~w", [File]),
+    debug(language_server(protocol), "Writing all STDOUT and STDERR to file:~w", [File]),
     open(File, write, Stream, [buffer(false)]),
     set_prolog_IO(user_input, Stream, Stream).
 
