@@ -404,13 +404,19 @@ delete_unix_domain_socket_file(Unix_Domain_Socket_Path, Unix_Domain_Socket_Path_
         )
     ).
 
+:- if(current_predicate(unix_domain_socket/1)).
+    optional_unix_domain_socket(Socket) :-
+        unix_domain_socket(Socket).
+:- else.
+    optional_unix_domain_socket(_).
+:- endif.
 
 % Always bind only to localhost for security reasons
 % Delete the socket file in case it is already around so that the same name can be reused
 bind_socket(Server_Thread_ID, Unix_Domain_Socket_Path_And_File, Port, Socket, Client_Address) :-
     (   nonvar(Unix_Domain_Socket_Path_And_File)
     ->  debug(language_server(protocol), "Using Unix domain socket name: ~w", [Unix_Domain_Socket_Path_And_File]),
-        unix_domain_socket(Socket),
+        optional_unix_domain_socket(Socket),
         catch(delete_file(Unix_Domain_Socket_Path_And_File), error(_, _), true),
         tcp_bind(Socket, Unix_Domain_Socket_Path_And_File),
         Client_Address = Unix_Domain_Socket_Path_And_File
@@ -422,7 +428,6 @@ bind_socket(Server_Thread_ID, Unix_Domain_Socket_Path_And_File, Port, Socket, Cl
         )
     ),
     assert(language_server_thread(Server_Thread_ID, Unix_Domain_Socket_Path_And_File, Socket)).
-
 
 % Communicates the used port and password to the client via STDOUT so the client
 % language library can use them to connect
