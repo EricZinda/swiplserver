@@ -296,6 +296,10 @@ class PrologServer:
         if self._launch_server is False and self._output_file is not None:
             raise ValueError("output_file only works when launch_server is True.")
 
+        if self._launch_server and self._output_file is None:
+            self._output_file = "c:\\temp\\out.txt"
+            self._server_traces = True
+
     def __enter__(self):
         self.start()
         return self
@@ -536,7 +540,7 @@ class PrologThread:
                 self._socket.connect(prologAddress)
                 break
             except ConnectionRefusedError as error:
-                _log.debug("Server not responding", prologAddress)
+                _log.debug("Server not responding %s", prologAddress, self._prolog_server)
                 connect_exception = error
                 connect_count += 1
                 sleep(1)
@@ -849,7 +853,7 @@ def create_posix_path(os_path):
     # "C:\" on windows with a workaround since PurePath doesn't really handle it right
     convertedPath = str(PurePosixPath(PurePath(os_path)))
     if convertedPath[0] != "/" and convertedPath[1] == ":" and convertedPath[2] == "\\":
-        finalPath = "/" + convertedPath[0] + convertedPath[1] + convertedPath[3:]
+        finalPath = convertedPath[0] + convertedPath[1] + convertedPath[3:]
     else:
         finalPath = convertedPath
     return finalPath
