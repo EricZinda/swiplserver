@@ -39,9 +39,11 @@
 <p>If your SWI Prolog doesn't yet include the language server:</p>
 <ol>
 <li>Download the <code>language_server.pl</code> file from the <a href="https://github.com/EricZinda/swiplserver/tree/main/language_server">GitHub repository</a>.</li>
-<li>Copy it to the <code>/swipl/library</code> directory where SWI Prolog is installed</li>
-<li>Launch SWI Prolog and type <code>?- make.</code>. This will update the installation to include it.</li>
+<li>Open an operating system command prompt and go to the directory where you downloaded <code>language_server.pl</code>.</li>
+<li>Run the below command. On Windows the command prompt must be <a href="https://www.wikihow.com/Run-Command-Prompt-As-an-Administrator-on-Windows">run as an administrator</a>. On Mac or Linux, start the command with <code>sudo</code> as in <code>sudo swipl -s ...</code>.</li>
 </ol>
+<pre><code>swipl -s language_server.pl -g &quot;language_server:install_to_library('language_server.pl')&quot; -t halt
+</code></pre>
 <h2 id="usage">Usage</h2>
 <p><code><a title="swiplserver.prologserver.PrologThread" href="#swiplserver.prologserver.PrologThread">PrologThread</a></code> represents a thread in <em>Prolog</em> (it is not a Python thread!). A given <code><a title="swiplserver.prologserver.PrologThread" href="#swiplserver.prologserver.PrologThread">PrologThread</a></code> instance will always run queries on the same Prolog thread (i.e. single threaded within Prolog).</p>
 <p>To run a query and wait until all results are returned:</p>
