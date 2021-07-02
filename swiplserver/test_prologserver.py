@@ -474,6 +474,7 @@ class TestPrologServer(ParametrizedTestCase):
     def test_multiple_connections(self):
         threadCount = 5
         # Multiple connections can run concurrently")
+
         with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
             with server.create_thread() as monitorThread:
                 with server.create_thread() as controlThread:
@@ -853,14 +854,14 @@ def load_tests(loader, standard_tests, pattern):
     # run_unix_domain_sockets_performance_tests(suite)
 
     # Tests a specific test
-    # suite.addTest(TestPrologServer('test_sync_query'))
+    # suite.addTest(TestPrologServer('test_goal_thread_failure'))
     # socketPath = os.path.dirname(os.path.realpath(__file__))
     # suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, test_item_name="test_sync_query", launchServer=False,
     #                                                serverPort=4242, password="test"))
 
     # Tests a specific test 100 times
     # for index in range(0, 100):
-    #     suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, test_item_name="test_server_options_and_shutdown", launchServer=False, useUnixDomainSocket=None, serverPort=4242, password="debugnow"))
+    #     suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, test_item_name="test_multiple_connections", launchServer=True, useUnixDomainSocket=None, serverPort=None, password=None))
 
     # Run full test suite using Unix Domain Sockets when appropriate as "main" way to connect
     # Tests include both Port and Unix Domain socket tests so both are tested in either mode
@@ -884,3 +885,4 @@ if __name__ == '__main__':
     # perfLogger.addHandler(file_handler)
 
     unittest.main(verbosity=2, module="test_prologserver")
+    # unittest.main(verbosity=2, module="test_prologserver", failfast=True)

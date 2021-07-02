@@ -743,7 +743,7 @@ state_process_command(Stream, Goal_Thread_ID, _, async_result(Timeout), _) :-
     ),
     (   query_in_progress(Goal_Thread_ID)
     ->  (   (   debug(language_server(protocol), "Pending query results exist for ~w", [Goal_Thread_ID]),
-                get_next_result(Goal_Thread_ID, Options, Result)
+                get_next_result(Goal_Thread_ID, Stream, Options, Result)
             )
         ->  reply_with_result(Goal_Thread_ID, Stream, Result)
         ;   reply_error(Stream, result_not_available)
@@ -812,7 +812,7 @@ state_process_command(Stream, _, _, Command, _) :-
 % and then shutdown the communication thread
 % Tail recurse to not grow the stack
 heartbeat_until_result(Goal_Thread_ID, Stream, Answers) :-
-    (   get_next_result(Goal_Thread_ID, [timeout(2)], Answers)
+    (   get_next_result(Goal_Thread_ID, Stream, [timeout(2)], Answers)
     ->  debug(language_server(query), "Received answer from goal thread: ~w", [Answers])
     ;   (   debug(language_server(protocol), "heartbeat...", []),
             write_heartbeat(Stream),
@@ -873,12 +873,18 @@ send_next_result(Respond_To_Thread_ID, Answer, Exception_In_Goal, Find_All) :-
 
 
 % Gets the next result from the goal thread in the communication thread queue,
-% and retracts query_in_progress/1 when the last result has been sent
+% and retracts query_in_progress/1 when the last result has been sent.
 % Find_All == true only returns one message, so delete query_in_progress
 % No matter what it is
 % \+ Find_All: There may be more than one result. The first one we hit with any exception
 % (note that no_more_results is also returned as an exception) means we are done
-get_next_result(Goal_Thread_ID, Options, Answers) :-
+get_next_result(Goal_Thread_ID, Stream, Options, Answers) :-
+    (   thread_property(Goal_Thread_ID, status(running))
+    ->  true
+    ;   (   reply_error(Stream, connection_failed),
+            throw(connection_failed)
+        )
+    ),
     thread_self(Self_ID),
     thread_get_message(Self_ID, result(Answers, Find_All), Options),
     (   Find_All
