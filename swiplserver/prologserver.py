@@ -299,10 +299,6 @@ class PrologServer:
         if self._launch_server is False and self._output_file is not None:
             raise ValueError("output_file only works when launch_server is True.")
 
-        if self._launch_server and self._output_file is None:
-            self._output_file = "c:\\temp\\out.txt"
-            self._server_traces = True
-
     def __enter__(self):
         self.start()
         return self
