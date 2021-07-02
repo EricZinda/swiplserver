@@ -46,7 +46,7 @@ run_test_script(Script, Status):-
 :- begin_tests(py_language_server, []).
 
 test(language_server):-
-    run_test_script('/Users/ericzinda/Enlistments/swiplserver/swiplserver/test_prologserver.py', Status),
+    run_test_script('../swiplserver/test_prologserver.py', Status),
     assertion(Status == exit(0)).
 
 :- end_tests(py_language_server).
