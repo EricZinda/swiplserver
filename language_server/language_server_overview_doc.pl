@@ -33,8 +33,12 @@ In order to use the language server with any programming language:
 
 If your SWI Prolog doesn't yet include the language server:
     1. Download the =|language_server.pl|= file from the [GitHub repository](https://github.com/EricZinda/swiplserver/tree/main/language_server).
-    2. Copy it to the /swipl/library directory where SWI Prolog is installed
-    3. Launch SWI Prolog and type =|?- make.|=. This will update the installation to include it.
+    2. Open an operating system command prompt and go to the directory where you downloaded =|language_server.pl|=.
+    3. Run the command below. On Windows the command prompt must be [run as an administrator](https://www.wikihow.com/Run-Command-Prompt-As-an-Administrator-on-Windows). On Mac or Linux, start the command with `sudo` as in `sudo swipl -s ...`.
+
+~~~
+swipl -s language_server.pl -g "language_server:install_to_library('language_server.pl')" -t halt
+~~~
 
 ## Prolog Language Differences from the Top Level
 

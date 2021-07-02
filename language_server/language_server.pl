@@ -255,6 +255,7 @@ Response:
 % that can be cancelled
 :- dynamic(safe_to_cancel/1).
 
+
 % Password is carefully constructed to be a string (not an atom) so that it is not
 % globally visible
 % Add ".\n" to the password since it will be added by the message when received
@@ -1075,3 +1076,23 @@ unix_domain_socket_path(Created_Directory, File_Path) :-
                         set_prolog_flag(tmp_dir, Save_Tmp_Dir)
                       ),
     close(Stream).
+
+
+% Helper for installing the language_server.pl file to the right
+% library directory.
+% Call using swipl -s language_server.pl -g "language_server:install_to_library('language_server.pl')" -t halt
+install_to_library(File) :-
+    once(find_library(Path)),
+    copy_file(File, Path),
+    make.
+
+
+% Find the base library path, i.e. the one that ends in
+% "library/"
+find_library(Path) :-
+    file_alias_path(library, Path),
+    atomic_list_concat(Parts, '/', Path),
+    reverse(Parts, Parts_Reverse),
+    nth0(0, Parts_Reverse, ''),
+    nth0(1, Parts_Reverse, Library),
+    string_lower(Library, 'library').
