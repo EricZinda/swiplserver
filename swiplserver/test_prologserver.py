@@ -431,10 +431,8 @@ class TestPrologServer(ParametrizedTestCase):
                 with server.create_thread() as prologThread:
                     # Run query in a thread since it is synchronous and we want to cancel before finished
                     def TestThread(prologThread):
-                        try:
+                        with suppress(Exception):
                             prologThread.query("(sleep(10), assert(closeConnectionTestFinished)")
-                        except Exception:
-                            pass
 
                     thread = threading.Thread(target=TestThread, args=(prologThread, ))
                     thread.start()

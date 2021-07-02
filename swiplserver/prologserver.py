@@ -122,6 +122,7 @@ import socket
 import subprocess
 import unittest
 import uuid
+from contextlib import suppress
 from os.path import join
 from threading import Thread
 from pathlib import PurePath, PurePosixPath, PureWindowsPath
@@ -331,10 +332,8 @@ class PrologServer:
 
             # Need to get rid of the unix domain socket file
             if self._unix_domain_socket:
-                try:
+                with suppress(Exception):
                     os.remove(self._unix_domain_socket)
-                except Exception as error:
-                    pass
             self._process = None
 
     def start(self):
@@ -539,7 +538,7 @@ class PrologThread:
                 self._socket.connect(prologAddress)
                 break
             except ConnectionRefusedError as error:
-                _log.debug("Server not responding %s", prologAddress, self._prolog_server)
+                _log.debug("Server not responding %s", prologAddress)
                 connect_exception = error
                 connect_count += 1
                 sleep(1)
@@ -566,12 +565,10 @@ class PrologThread:
         """
         if self._socket:
             if not self._prolog_server.connection_failed:
-                try:
+                with suppress(OSError):
                     # attempt a clean exit so the server doesn't shutdown
                     self._send("close.\n")
                     self._return_prolog_response()
-                except OSError as error:
-                    pass
 
             self._socket.close()
             self._socket = None
