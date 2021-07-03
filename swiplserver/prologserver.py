@@ -308,7 +308,7 @@ class PrologServer:
         self.stop()
 
     def __del__(self):
-        self.stop()
+        self.stop(kill=True)
 
     def stop(self, kill=False):
         """
@@ -320,20 +320,22 @@ class PrologServer:
             kill: False (default) connect to the server and ask it to perform an orderly shutdown of Prolog and exit the process.  True uses the Python subprocess.kill() command which will terminate it immediately. Note that if PrologServer.connection_failed is set to true (due to a failure that indicates the server will not respond), subprocess.kill() will be used regardless of this setting.
         """
         if self._process:
-            if kill is True or self.connection_failed:
-                _log.debug("Killing Prolog process...")
-                self._process.kill()
-                _log.debug("Killed Prolog process.")
-            else:
-                with self.create_thread() as prologThread:
-                    prologThread.halt_server()
+            with suppress(Exception):
+                if kill is True or self.connection_failed:
+                    _log.debug("Killing Prolog process...")
+                    self._process.kill()
+                    _log.debug("Killed Prolog process.")
+                else:
+                    with self.create_thread() as prologThread:
+                        prologThread.halt_server()
 
-            result = self._process.wait()
+                result = self._process.wait()
 
             # Need to get rid of the unix domain socket file
             if self._unix_domain_socket:
                 with suppress(Exception):
                     os.remove(self._unix_domain_socket)
+                    
             self._process = None
 
     def start(self):
@@ -570,7 +572,9 @@ class PrologThread:
                     self._send("close.\n")
                     self._return_prolog_response()
 
-            self._socket.close()
+            with suppress(Exception):
+                self._socket.close()
+
             self._socket = None
 
     def query(self, value: str, query_timeout_seconds: float = None):
