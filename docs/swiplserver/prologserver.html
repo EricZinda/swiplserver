@@ -364,7 +364,7 @@ json_term must be in the Prolog JSON format. See <code><a title="swiplserver.pro
 </dd>
 <dt id="swiplserver.prologserver.PrologServer"><code class="flex name class">
 <span>class <span class="ident">PrologServer</span></span>
-<span>(</span><span>launch_server: bool = True, port: int = None, password: str = None, unix_domain_socket: str = None, query_timeout_seconds: float = None, pending_connection_count: int = None, output_file_name: str = None, server_traces: bool = False)</span>
+<span>(</span><span>launch_server: bool = True, port: int = None, password: str = None, unix_domain_socket: str = None, query_timeout_seconds: float = None, pending_connection_count: int = None, output_file_name: str = None, server_traces: str = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Initialize a PrologServer class that manages a SWI Prolog process associated with your application process. <code><a title="swiplserver.prologserver.PrologServer.start" href="#swiplserver.prologserver.PrologServer.start">PrologServer.start()</a></code> actually launches the process if launch_server is True.</p>
@@ -418,7 +418,11 @@ When launch_server is False, ignored.</dd>
 If using multiple servers in one SWI Prolog instance, only set this on the first one.
 Each time it is set the output will be deleted and redirected.</dd>
 <dt><strong><code>server_traces</code></strong></dt>
-<dd>Only used in unusual debugging circumstances. True turns on all tracing output from Prolog <code>language_server/1</code> server (i.e. runs <code>debug(language_server(_)).</code> in Prolog). Since these are Prolog traces, where they go is determined by output_file_name.</dd>
+<dd>Only used in unusual debugging circumstances. Since these are Prolog traces, where they go is determined by output_file_name.
+None (the default) does not turn on language_server tracing
+"_" turns on all tracing output from Prolog <code>language_server/1</code> server (i.e. runs <code>debug(language_server(_)).</code> in Prolog).
+"protocol" turns on only protocol level messages (which results in much less data in the trace for large queries)
+"query" turns on only messages about the query.</dd>
 </dl>
 <h2 id="raises">Raises</h2>
 <p>ValueError if the arguments don't make sense.

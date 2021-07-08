@@ -32,7 +32,7 @@ Should work on:
 Has been tested with:
 - Ubuntu 20.04.2 + SWI Prolog 8.3.22 + Python 3.7.8
 - Windows 8.1 Pro 64 bit + SWI Prolog 8.2.4 + Python 3.8.1
-- MacOS Catalina + SWI Prolog 8.3.24 + Python 3.7.4
+- MacOS Catalina/Big Sur + SWI Prolog 8.3.24 + Python 3.7.4
 
 ### Performance
 If you're interested in rough performance overhead of the approach this library takes.  On a late 2013 macbook pro the per call overhead of the library for running a Prolog query is about:

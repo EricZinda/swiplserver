@@ -784,7 +784,7 @@ class TestPrologServer(ParametrizedTestCase):
             os.remove(tempFile)
         except:
             pass
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, server_traces=True, output_file_name=tempFile) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, server_traces="_", output_file_name=tempFile) as server:
             with PrologThread(server) as prolog_thread:
                 prolog_thread.query("true")
 
@@ -801,7 +801,7 @@ class TestPrologServer(ParametrizedTestCase):
         tempDir = gettempdir()
         tempFile = os.path.join(tempDir, "swiplserveroutput.txt")
 
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, output_file_name=tempFile, server_traces=True) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, output_file_name=tempFile, server_traces="_") as server:
             with PrologThread(server) as prolog_thread:
                 self.assertTrue(prolog_thread.query("true"))
 

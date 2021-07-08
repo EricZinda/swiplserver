@@ -219,7 +219,7 @@ class PrologServer:
                  query_timeout_seconds: float = None,
                  pending_connection_count: int = None,
                  output_file_name: str = None,
-                 server_traces: bool = False):
+                 server_traces: str = None):
         """
         Initialize a PrologServer class that manages a SWI Prolog process associated with your application process. `PrologServer.start()` actually launches the process if launch_server is True.
 
@@ -268,7 +268,11 @@ class PrologServer:
 
             output_file_name: Provide the file name for a file to redirect all Prolog output (STDOUT and STDERR) to. Used for debugging or gathering a log of Prolog output. None outputs all Prolog output to the Python logging infrastructure using the 'swiplserver' log.  If using multiple servers in one SWI Prolog instance, only set this on the first one.  Each time it is set the output will be deleted and redirected.
 
-            server_traces: Only used in unusual debugging circumstances. True turns on all tracing output from Prolog `language_server/1` server (i.e. runs `debug(language_server(_)).` in Prolog). Since these are Prolog traces, where they go is determined by output_file_name.
+            server_traces: Only used in unusual debugging circumstances. Since these are Prolog traces, where they go is determined by output_file_name.
+                None (the default) does not turn on language_server tracing
+                "_" turns on all tracing output from Prolog `language_server/1` server (i.e. runs `debug(language_server(_)).` in Prolog).
+                "protocol" turns on only protocol level messages (which results in much less data in the trace for large queries)
+                "query" turns on only messages about the query.
 
         Raises:
             ValueError if the arguments don't make sense.  For example: choosing Unix Domain Sockets on Windows or setting output_file with launch_server = False
@@ -407,9 +411,9 @@ class PrologServer:
             # Now that we are done reading, we can add the STDOUT Reader
             self._stdout_reader = _NonBlockingStreamReader(self._process.stdout)
 
-            if self._server_traces:
+            if self._server_traces is not None:
                 with self.create_thread() as prologThread:
-                    prologThread.query("debug(language_server(_))")
+                    prologThread.query("debug(language_server({}))".format(self._server_traces))
 
     def create_thread(self):
         """
