@@ -246,12 +246,14 @@ class PrologServer:
             launch_server: True (default) launch a SWI Prolog process on `PrologServer.start()` and shuts it down automatically on `PrologServer.stop()` (or after a resource manager like the Python "with" statement exits). False connects to an existing SWI Prolog process that is running the language_server/1 predicate (i.e. "Standalone Mode"). When False, password and one of port or unix_domain_socket must be specified to match the options provided to `language_server/1` in the separate SWI Prolog process.
 
             port: The TCP/IP localhost port to use for communication with the SWI Prolog process. Ignored if unix_domain_socket is not None.
-                When launch_server is True, None (default) automatically picks an open port that the server and this class both use.
-                When launch_server is False, must be set to match the port specified in language_server/1 of the running SWI Prolog process.
+
+                - When launch_server is True, None (default) automatically picks an open port that the server and this class both use.
+                - When launch_server is False, must be set to match the port specified in language_server/1 of the running SWI Prolog process.
 
             password: The password to use for connecting to the SWI Prolog process. This is to prevent malicious users from connecting to the server since it can run arbitrary code.  Allowing the server to generate a strong password by using None is recommended.
-                When launch_server is True, None (default) automatically generates a strong password using a uuid. Other values specify the password to use.
-                When launch_server is False, must be set to match the password specified in language_server/1 of the running SWI Prolog process.
+
+                - When launch_server is True, None (default) automatically generates a strong password using a uuid. Other values specify the password to use.
+                - When launch_server is False, must be set to match the password specified in language_server/1 of the running SWI Prolog process.
 
             unix_domain_socket: None (default) use localhost TCP/IP for communication with the SWI Prolog process. Otherwise (only on Unix) is either a fully qualified path and filename of the Unix Domain Socket to use or an empty string (recommended). An empty string will cause a temporary directory to be created using Prolog's `tmp_file/2` and a socket file will be created within that directory following the below requirements.  If the directory and file are unable to be created for some reason, `PrologServer.start()` with raise an exception. Specifying a file to use should follow the same guidelines as the generated file:
 
@@ -263,16 +265,18 @@ class PrologServer:
             query_timeout_seconds: None (default) set the default timeout for all queries to be infinite (this can be changed on a per query basis). Other values set the default timeout in seconds.
 
             pending_connection_count: Set the default number of pending connections allowed on the server. Since the server is only connected to by your application and is not a server, this value should probably never be changed unless your application is creating new `PrologThread` objects at a very high rate.
-                When launch_server is True, None uses the default (5) and other values set the count.
-                When launch_server is False, ignored.
+
+                - When launch_server is True, None uses the default (5) and other values set the count.
+                - When launch_server is False, ignored.
 
             output_file_name: Provide the file name for a file to redirect all Prolog output (STDOUT and STDERR) to. Used for debugging or gathering a log of Prolog output. None outputs all Prolog output to the Python logging infrastructure using the 'swiplserver' log.  If using multiple servers in one SWI Prolog instance, only set this on the first one.  Each time it is set the output will be deleted and redirected.
 
             server_traces: Only used in unusual debugging circumstances. Since these are Prolog traces, where they go is determined by output_file_name.
-                None (the default) does not turn on language_server tracing
-                "_" turns on all tracing output from Prolog `language_server/1` server (i.e. runs `debug(language_server(_)).` in Prolog).
-                "protocol" turns on only protocol level messages (which results in much less data in the trace for large queries)
-                "query" turns on only messages about the query.
+
+                - None (the default) does not turn on language_server tracing
+                - "_" turns on all tracing output from Prolog `language_server/1` server (i.e. runs `debug(language_server(_)).` in Prolog).
+                - "protocol" turns on only protocol level messages (which results in much less data in the trace for large queries)
+                - "query" turns on only messages about the query.
 
         Raises:
             ValueError if the arguments don't make sense.  For example: choosing Unix Domain Sockets on Windows or setting output_file with launch_server = False

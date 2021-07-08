@@ -387,14 +387,22 @@ json_term must be in the Prolog JSON format. See <code><a title="swiplserver.pro
 <dt><strong><code>launch_server</code></strong></dt>
 <dd>True (default) launch a SWI Prolog process on <code><a title="swiplserver.prologserver.PrologServer.start" href="#swiplserver.prologserver.PrologServer.start">PrologServer.start()</a></code> and shuts it down automatically on <code><a title="swiplserver.prologserver.PrologServer.stop" href="#swiplserver.prologserver.PrologServer.stop">PrologServer.stop()</a></code> (or after a resource manager like the Python "with" statement exits). False connects to an existing SWI Prolog process that is running the language_server/1 predicate (i.e. "Standalone Mode"). When False, password and one of port or unix_domain_socket must be specified to match the options provided to <code>language_server/1</code> in the separate SWI Prolog process.</dd>
 <dt><strong><code>port</code></strong></dt>
-<dd>The TCP/IP localhost port to use for communication with the SWI Prolog process. Ignored if unix_domain_socket is not None.
-When launch_server is True, None (default) automatically picks an open port that the server and this class both use.
-When launch_server is False, must be set to match the port specified in language_server/1 of the running SWI Prolog process.</dd>
+<dd>
+<p>The TCP/IP localhost port to use for communication with the SWI Prolog process. Ignored if unix_domain_socket is not None.</p>
+<ul>
+<li>When launch_server is True, None (default) automatically picks an open port that the server and this class both use.</li>
+<li>When launch_server is False, must be set to match the port specified in language_server/1 of the running SWI Prolog process.</li>
+</ul>
+</dd>
 <dt><strong><code>password</code></strong></dt>
-<dd>The password to use for connecting to the SWI Prolog process. This is to prevent malicious users from connecting to the server since it can run arbitrary code.
-Allowing the server to generate a strong password by using None is recommended.
-When launch_server is True, None (default) automatically generates a strong password using a uuid. Other values specify the password to use.
-When launch_server is False, must be set to match the password specified in language_server/1 of the running SWI Prolog process.</dd>
+<dd>
+<p>The password to use for connecting to the SWI Prolog process. This is to prevent malicious users from connecting to the server since it can run arbitrary code.
+Allowing the server to generate a strong password by using None is recommended.</p>
+<ul>
+<li>When launch_server is True, None (default) automatically generates a strong password using a uuid. Other values specify the password to use.</li>
+<li>When launch_server is False, must be set to match the password specified in language_server/1 of the running SWI Prolog process.</li>
+</ul>
+</dd>
 <dt><strong><code>unix_domain_socket</code></strong></dt>
 <dd>
 <p>None (default) use localhost TCP/IP for communication with the SWI Prolog process. Otherwise (only on Unix) is either a fully qualified path and filename of the Unix Domain Socket to use or an empty string (recommended). An empty string will cause a temporary directory to be created using Prolog's <code>tmp_file/2</code> and a socket file will be created within that directory following the below requirements.
@@ -410,19 +418,27 @@ This means the directory must have the appropriate permissions to allow the Prol
 <dt><strong><code>query_timeout_seconds</code></strong></dt>
 <dd>None (default) set the default timeout for all queries to be infinite (this can be changed on a per query basis). Other values set the default timeout in seconds.</dd>
 <dt><strong><code>pending_connection_count</code></strong></dt>
-<dd>Set the default number of pending connections allowed on the server. Since the server is only connected to by your application and is not a server, this value should probably never be changed unless your application is creating new <code><a title="swiplserver.prologserver.PrologThread" href="#swiplserver.prologserver.PrologThread">PrologThread</a></code> objects at a very high rate.
-When launch_server is True, None uses the default (5) and other values set the count.
-When launch_server is False, ignored.</dd>
+<dd>
+<p>Set the default number of pending connections allowed on the server. Since the server is only connected to by your application and is not a server, this value should probably never be changed unless your application is creating new <code><a title="swiplserver.prologserver.PrologThread" href="#swiplserver.prologserver.PrologThread">PrologThread</a></code> objects at a very high rate.</p>
+<ul>
+<li>When launch_server is True, None uses the default (5) and other values set the count.</li>
+<li>When launch_server is False, ignored.</li>
+</ul>
+</dd>
 <dt><strong><code>output_file_name</code></strong></dt>
 <dd>Provide the file name for a file to redirect all Prolog output (STDOUT and STDERR) to. Used for debugging or gathering a log of Prolog output. None outputs all Prolog output to the Python logging infrastructure using the 'swiplserver' log.
 If using multiple servers in one SWI Prolog instance, only set this on the first one.
 Each time it is set the output will be deleted and redirected.</dd>
 <dt><strong><code>server_traces</code></strong></dt>
-<dd>Only used in unusual debugging circumstances. Since these are Prolog traces, where they go is determined by output_file_name.
-None (the default) does not turn on language_server tracing
-"_" turns on all tracing output from Prolog <code>language_server/1</code> server (i.e. runs <code>debug(language_server(_)).</code> in Prolog).
-"protocol" turns on only protocol level messages (which results in much less data in the trace for large queries)
-"query" turns on only messages about the query.</dd>
+<dd>
+<p>Only used in unusual debugging circumstances. Since these are Prolog traces, where they go is determined by output_file_name.</p>
+<ul>
+<li>None (the default) does not turn on language_server tracing</li>
+<li>"_" turns on all tracing output from Prolog <code>language_server/1</code> server (i.e. runs <code>debug(language_server(_)).</code> in Prolog).</li>
+<li>"protocol" turns on only protocol level messages (which results in much less data in the trace for large queries)</li>
+<li>"query" turns on only messages about the query.</li>
+</ul>
+</dd>
 </dl>
 <h2 id="raises">Raises</h2>
 <p>ValueError if the arguments don't make sense.
