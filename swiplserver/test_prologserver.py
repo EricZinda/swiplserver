@@ -8,6 +8,8 @@ import sys
 import unittest
 import threading
 from time import sleep, perf_counter
+from unittest import TestSuite
+
 from prologserver import *
 from pathlib import PurePath, PurePosixPath, PureWindowsPath, Path
 
@@ -17,15 +19,16 @@ class ParametrizedTestCase(unittest.TestCase):
     """ TestCase classes that want to be parametrized should
         inherit from this class.
     """
-    def __init__(self, methodName='runTest', launchServer = True, useUnixDomainSocket = None, serverPort= None, password= None):
+    def __init__(self, methodName='runTest', essentialOnly = False, launchServer = True, useUnixDomainSocket = None, serverPort= None, password= None):
         super(ParametrizedTestCase, self).__init__(methodName)
         self.launchServer = launchServer
         self.useUnixDomainSocket = useUnixDomainSocket
         self.serverPort = serverPort
         self.password = password
+        self.essentialOnly = essentialOnly
 
     @staticmethod
-    def parametrize(testcase_klass, test_item_name = None, launchServer = True, useUnixDomainSocket = None, serverPort= None, password= None):
+    def parametrize(testcase_klass, essentialOnly = False, test_item_name = None, launchServer = True, useUnixDomainSocket = None, serverPort= None, password= None):
         """ Create a suite containing all tests taken from the given
             subclass, passing them the parameter 'param'.
         """
@@ -34,10 +37,10 @@ class ParametrizedTestCase(unittest.TestCase):
         suite = unittest.TestSuite()
         if test_item_name is None:
             for name in testnames:
-                suite.addTest(testcase_klass(name, launchServer = launchServer, useUnixDomainSocket = useUnixDomainSocket,
+                suite.addTest(testcase_klass(name, essentialOnly = essentialOnly, launchServer = launchServer, useUnixDomainSocket = useUnixDomainSocket,
                                              serverPort= serverPort, password= password))
         else:
-            suite.addTest(testcase_klass(test_item_name, launchServer=launchServer, useUnixDomainSocket=useUnixDomainSocket,
+            suite.addTest(testcase_klass(test_item_name, essentialOnly = essentialOnly, launchServer=launchServer, useUnixDomainSocket=useUnixDomainSocket,
                                          serverPort=serverPort, password=password))
 
         return suite
@@ -129,7 +132,7 @@ class TestPrologServer(ParametrizedTestCase):
             # Joining crashes Prolog in the way the code joins and so we will have extra threads that have exited reported by thread_property
             # just treat them as gone
             # testThreads.append(item["ThreadID"] + ":" + str(item["Status"]))
-            if prolog_name(item["Status"]) == "exception" and prolog_args(item["Status"])[0] == "$aborted":
+            if prolog_name(item["Status"]) == "true" or (prolog_name(item["Status"]) == "exception" and prolog_args(item["Status"])[0] == "$aborted"):
                 continue
             else:
                 testThreads.append(item["ThreadID"] + ":" + str(item["Status"]))
@@ -254,6 +257,13 @@ class TestPrologServer(ParametrizedTestCase):
                     caughtException = True
                 assert caughtException
 
+    def test_sync_query_slow(self):
+        if self.essentialOnly:
+            print("skipped")
+            return
+
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+            with server.create_thread() as client:
                 # query that is long enough to send heartbeats but eventually succeeds
                 self.assertTrue(client.query("sleep(5)"))
                 self.assertGreater(client._heartbeat_count, 0)
@@ -350,22 +360,6 @@ class TestPrologServer(ParametrizedTestCase):
                     results.append(result[0])
                 assert [{'X': {'args': ['a', 'a'], 'functor': '='}, 'Y': 'a'}, 'time_limit_exceeded'] == results
 
-                # Async query that checks for second result before it is available
-                client.query_async("(member(X, [Y=a, sleep(3), Y=b]), X)", query_timeout_seconds= 10, find_all=False)
-                results = []
-                resultNotAvailable = False
-                while True:
-                    try:
-                        result = client.query_async_result(0)
-                        if result is None:
-                            break
-                        else:
-                            results.append(result[0])
-                    except PrologResultNotAvailableError as error:
-                        resultNotAvailable = True
-
-                assert resultNotAvailable and [{'X': {'args': ['a', 'a'], 'functor': '='}, 'Y': 'a'}, {'X': {'args': [3], 'functor': 'sleep'}, 'Y': '_'}, {'X': {'args': ['b', 'b'], 'functor': '='}, 'Y': 'b'}] == results
-
                 # Async query that is cancelled after retrieving first result but while the query is running
                 client.query_async("(member(X, [Y=a, sleep(3), Y=b]), X)", find_all=False)
                 result = client.query_async_result()
@@ -400,10 +394,36 @@ class TestPrologServer(ParametrizedTestCase):
                     caughtException = True
                 assert caughtException
 
+    def test_async_query_slow(self):
+        if self.essentialOnly:
+            print("skipped")
+            return
+
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+            with server.create_thread() as client:
+                # Async query that checks for second result before it is available
+                client.query_async("(member(X, [Y=a, sleep(3), Y=b]), X)", query_timeout_seconds= 10, find_all=False)
+                results = []
+                resultNotAvailable = False
+                while True:
+                    try:
+                        result = client.query_async_result(0)
+                        if result is None:
+                            break
+                        else:
+                            results.append(result[0])
+                    except PrologResultNotAvailableError as error:
+                        resultNotAvailable = True
+
+                assert resultNotAvailable and [{'X': {'args': ['a', 'a'], 'functor': '='}, 'Y': 'a'}, {'X': {'args': [3], 'functor': 'sleep'}, 'Y': '_'}, {'X': {'args': ['b', 'b'], 'functor': '='}, 'Y': 'b'}] == results
 
                 self.async_query_timeout(client, 3, 1)
 
     def test_protocol_edge_cases(self):
+        if self.essentialOnly:
+            print("skipped")
+            return
+
         with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
             with server.create_thread() as client:
                 # Call two async queries in a row. Should work and return the second results at least 1 heartbeat should be sent
@@ -425,6 +445,10 @@ class TestPrologServer(ParametrizedTestCase):
                 assert [{'X': {'args': ['d', 'd'], 'functor': '='}, 'Y': 'd'}, {'X': {'args': ['e', 'e'], 'functor': '='}, 'Y': 'e'}, {'X': {'args': ['f', 'f'], 'functor': '='}, 'Y': 'f'}] == results
 
     def test_connection_close_with_running_query(self):
+        if self.essentialOnly:
+            print("skipped")
+            return
+
         with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
             with server.create_thread() as monitorThread:
                 # Closing a connection with an synchronous query running should abort the query and terminate the threads expectedly
@@ -470,8 +494,9 @@ class TestPrologServer(ParametrizedTestCase):
     # Then release the mutex
     # then check to see if they all finished
     def test_multiple_connections(self):
-        threadCount = 5
-        # Multiple connections can run concurrently")
+        if self.essentialOnly:
+            print("skipped")
+            return
 
         with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
             with server.create_thread() as monitorThread:
@@ -570,63 +595,8 @@ class TestPrologServer(ParametrizedTestCase):
             with server.create_thread() as monitorThread:
                 # Record the threads that are running, but give a pause so any threads created by the server on startup
                 # can get closed down
-                sleep(2)
                 initialThreads = self.thread_list(monitorThread)
-
-                # When starting a server, some variables can be filled in with defaults. Also: only the server thread should be created
-                # Launch the new server with appropriate options specified with variables to make sure they get filled in
-                if os.name == "nt":
-                    result = monitorThread.query("language_server([port(Port), server_thread(ServerThreadID), password(Password)])")
-                    optionsDict = result[0]
-                    assert "Port" in optionsDict and "ServerThreadID" in optionsDict and "Password" in optionsDict
-                else:
-                    result = monitorThread.query("language_server([port(Port), server_thread(ServerThreadID), password(Password), unix_domain_socket(Unix)])")
-                    optionsDict = result[0]
-                    assert "Port" in optionsDict and "ServerThreadID" in optionsDict and "Password" in optionsDict and "Unix" in optionsDict
-
-                # Get the new threadlist
-                result = monitorThread.query("thread_property(ThreadID, status(Status))")
-                testThreads = self.thread_list(monitorThread)
-
-                # Only a server thread should have been started
-                assert len(testThreads) - len(initialThreads) == 1
-
-                # stop_language_server should remove all (and only) created threads and the Unix Domain File (which is tested on self.tearDown())
-                result = monitorThread.query("stop_language_server({})".format(optionsDict["ServerThreadID"]))
-                sleep(2)
-                afterShutdownThreads = self.thread_list(monitorThread)
-                self.assertEqual(afterShutdownThreads, initialThreads)
-
-                # queryTimeout() supplied at startup should apply to queries by default. password() and port() should be used if supplied.
                 socketPort = 4250
-                result = monitorThread.query \
-                    ("language_server([query_timeout(1), port({}), password(testpassword), server_thread(ServerThreadID)])".format
-                        (socketPort))
-                serverThreadID = result[0]["ServerThreadID"]
-                with PrologServer(launch_server=False, port=socketPort, password="testpassword") as newServer:
-                    with newServer.create_thread() as prologThread:
-                        self.sync_query_timeout(prologThread, sleepForSeconds=2, queryTimeout=None)
-                        self.async_query_timeout(prologThread, sleepForSeconds=2, queryTimeout=None)
-                result = monitorThread.query("stop_language_server({})".format(serverThreadID))
-                self.assertEqual(result, True)
-                afterShutdownThreads = self.thread_list(monitorThread)
-                self.assertEqual(afterShutdownThreads, initialThreads)
-
-                # Shutting down a server with an active query should abort it and close all threads properly.
-                socketPort = 4250
-                result = monitorThread.query \
-                    ("language_server([port({}), password(testpassword), server_thread(ServerThreadID)])".format
-                        (socketPort))
-                serverThreadID = result[0]["ServerThreadID"]
-                with PrologServer(launch_server=False, port=socketPort, password="testpassword") as newServer:
-                    with newServer.create_thread() as prologThread:
-                        prologThread.query_async("sleep(20)")
-                # Wait for query to start running
-                sleep(2)
-                result = monitorThread.query("stop_language_server({})".format(serverThreadID))
-                assert result is True
-                afterShutdownThreads = self.thread_list(monitorThread)
-                self.assertEqual(afterShutdownThreads, initialThreads)
 
                 # password() should be used if supplied.
                 result = monitorThread.query("language_server([port(Port), password(testpassword), server_thread(ServerThreadID)])")
@@ -722,6 +692,72 @@ class TestPrologServer(ParametrizedTestCase):
                     assert False
 
                 # Launching this library itself and stopping in the debugger tests writeConnectionValues() and ignoreSigint and haltOnConnectionFailure internal features automatically
+
+    def test_server_options_and_shutdown_slow(self):
+        if self.essentialOnly:
+            print("skipped")
+            return
+
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+            with server.create_thread() as monitorThread:
+                # Record the threads that are running, but give a pause so any threads created by the server on startup
+                # can get closed down
+                initialThreads = self.thread_list(monitorThread)
+
+                # When starting a server, some variables can be filled in with defaults. Also: only the server thread should be created
+                # Launch the new server with appropriate options specified with variables to make sure they get filled in
+                if os.name == "nt":
+                    result = monitorThread.query("language_server([port(Port), server_thread(ServerThreadID), password(Password)])")
+                    optionsDict = result[0]
+                    assert "Port" in optionsDict and "ServerThreadID" in optionsDict and "Password" in optionsDict
+                else:
+                    result = monitorThread.query("language_server([port(Port), server_thread(ServerThreadID), password(Password), unix_domain_socket(Unix)])")
+                    optionsDict = result[0]
+                    assert "Port" in optionsDict and "ServerThreadID" in optionsDict and "Password" in optionsDict and "Unix" in optionsDict
+
+                # Get the new threadlist
+                result = monitorThread.query("thread_property(ThreadID, status(Status))")
+                testThreads = self.thread_list(monitorThread)
+
+                # Only a server thread should have been started
+                assert len(testThreads) - len(initialThreads) == 1
+
+                # stop_language_server should remove all (and only) created threads and the Unix Domain File (which is tested on self.tearDown())
+                result = monitorThread.query("stop_language_server({})".format(optionsDict["ServerThreadID"]))
+                sleep(2)
+                afterShutdownThreads = self.thread_list(monitorThread)
+                self.assertEqual(afterShutdownThreads, initialThreads)
+
+                # queryTimeout() supplied at startup should apply to queries by default. password() and port() should be used if supplied.
+                socketPort = 4250
+                result = monitorThread.query \
+                    ("language_server([query_timeout(1), port({}), password(testpassword), server_thread(ServerThreadID)])".format
+                        (socketPort))
+                serverThreadID = result[0]["ServerThreadID"]
+                with PrologServer(launch_server=False, port=socketPort, password="testpassword") as newServer:
+                    with newServer.create_thread() as prologThread:
+                        self.sync_query_timeout(prologThread, sleepForSeconds=2, queryTimeout=None)
+                        self.async_query_timeout(prologThread, sleepForSeconds=2, queryTimeout=None)
+                result = monitorThread.query("stop_language_server({})".format(serverThreadID))
+                self.assertEqual(result, True)
+                afterShutdownThreads = self.thread_list(monitorThread)
+                self.assertEqual(afterShutdownThreads, initialThreads)
+
+                # Shutting down a server with an active query should abort it and close all threads properly.
+                result = monitorThread.query \
+                    ("language_server([port({}), password(testpassword), server_thread(ServerThreadID)])".format
+                        (socketPort))
+                serverThreadID = result[0]["ServerThreadID"]
+                with PrologServer(launch_server=False, port=socketPort, password="testpassword") as newServer:
+                    with newServer.create_thread() as prologThread:
+                        prologThread.query_async("sleep(20)")
+                # Wait for query to start running
+                sleep(2)
+                result = monitorThread.query("stop_language_server({})".format(serverThreadID))
+                assert result is True
+                afterShutdownThreads = self.thread_list(monitorThread)
+                self.assertEqual(afterShutdownThreads, initialThreads)
+
 
     def test_unix_domain_socket_embedded(self):
         if os.name != "nt":
@@ -843,7 +879,9 @@ def run_unix_domain_sockets_performance_tests(suite):
                                                    useUnixDomainSocket=PrologServer.unix_domain_socket_file(socketPath),
                                                    serverPort=None, password=None))
 
+
 def load_tests(loader, standard_tests, pattern):
+    global essentialOnly
     suite = unittest.TestSuite()
 
     # Run the perf tests
@@ -852,7 +890,7 @@ def load_tests(loader, standard_tests, pattern):
     # run_unix_domain_sockets_performance_tests(suite)
 
     # Tests a specific test
-    # suite.addTest(TestPrologServer('test_goal_thread_failure'))
+    # suite.addTest(TestPrologServer('test_server_options_and_shutdown_slow'))
     # socketPath = os.path.dirname(os.path.realpath(__file__))
     # suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, test_item_name="test_sync_query", launchServer=False,
     #                                                serverPort=4242, password="test"))
@@ -867,9 +905,12 @@ def load_tests(loader, standard_tests, pattern):
         suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, launchServer=True, useUnixDomainSocket=None, serverPort=None, password=None))
     else:
         socketPath = os.path.dirname(os.path.realpath(__file__))
-        suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, launchServer=True, useUnixDomainSocket=PrologServer.unix_domain_socket_file(socketPath), serverPort=None, password=None))
+        suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, essentialOnly=essentialOnly, launchServer=True, useUnixDomainSocket=PrologServer.unix_domain_socket_file(socketPath), serverPort=None, password=None))
 
     return suite
+
+
+essentialOnly = os.getenv('ESSENTIAL_TESTS_ONLY') == 'True'
 
 
 if __name__ == '__main__':
@@ -883,4 +924,5 @@ if __name__ == '__main__':
     # perfLogger.addHandler(file_handler)
 
     unittest.main(verbosity=2, module="test_prologserver")
-    # unittest.main(verbosity=2, module="test_prologserver", failfast=True)
+
+    # # unittest.main(verbosity=2, module="test_prologserver", failfast=True)

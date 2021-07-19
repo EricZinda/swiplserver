@@ -38,7 +38,7 @@ test_language_server :-
 
 run_test_script(Script, Status):-
     process_create(path(python3), [Script],
-        [stdin(std), stdout(pipe(Out)), stderr(pipe(Out)), process(PID)]),
+        [stdin(std), stdout(pipe(Out)), stderr(pipe(Out)), process(PID), environment(['ESSENTIAL_TESTS_ONLY'='True'])]),
     read_lines(Out, Lines),
     writeln(Lines),
     process_wait(PID, Status).
