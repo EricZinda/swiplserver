@@ -41,33 +41,33 @@
 /**
   language_server(+Options:list) is semidet.
 
-Starts a Prolog language server using Options. The server is normally started automatically by a library built for a particular programming language, but starting manually can be useful when debugging Prolog code in some scenarios. See the documentation on "Standalone Mode" for more information.
+Starts a Prolog language server using Options. The server is normally started automatically by a library built for a particular programming language such as the [`swiplserver` Python library](#language-server-python-installation), but starting manually can be useful when debugging Prolog code in some scenarios. See the documentation on ["Standalone Mode"](#language-server-standalone-mode) for more information.
 
-Once started, the server listens for TCP/IP or Unix Domain Socket connections and authenticates them using the password provided (or generated) before processing any messages.  The messages processed by the server are described below.
+Once started, the server listens for TCP/IP or Unix Domain Socket connections and authenticates them using the password provided before processing any messages.  The messages processed by the server are described [below](#language-server-messages).
 
 For debugging, the server outputs traces using the `debug/3` predicate so that the server operation can be observed by using the `debug/1` predicate. Run the following commands to see them:
 
 - `debug(language_server(protocol))`: Traces protocol messages to show the flow of commands and connections.  It is designed to avoid filling the screen with large queries and results to make it easier to read.
 - `debug(language_server(query))`: Traces messages that involve each query and its results. Therefore it can be quite verbose depending on the query.
 
-## Options
-Options is a list containing any combination of the following options. When used in the Prolog top level (i.e. in Standalone Mode), these are specified as normal Prolog options like this:
+## Options {#language-server-options}
+Options is a list containing any combination of the following options. When used in the Prolog top level (i.e. in [Standalone Mode](#language-server-standalone-mode)), these are specified as normal Prolog options like this:
 ~~~
 language_server([unix_domain_socket(Socket), password('a password')])
 ~~~
-When using Embedded mode (i.e. launching the server from the command line when integrating into another language) they are passed using the same name but as normal command line arguments like this:
+When using ["Embedded Mode"](#language-server-embedded-mode) they are passed using the same name but as normal command line arguments like this:
 ~~~
 swipl --quiet -g language_server -t halt -- --write_connection_values=true --password="a password" --create_unix_domain_socket=true
 ~~~
 Note the use of quotes around values that could confuse command line processing like spaces (e.g. "a password") and that `unix_domain_socket(Variable)` is written as =|--create_unix_domain_socket=true|= on the command line. See below for more information.
 
 - port(?Port)
-The TCP/IP port to bind to on localhost. This option is ignored if the `unix_domain_socket/1` option is set. Port is either a legal TCP/IP port number (integer) or a variable term like `Port`. If it is a variable, it causes the system to select a free port and unify the variable with the selected port as in `tcp_bind/2`. If the option `write_connection_values(true)` is set, the selected port is output to STDOUT followed by `\n` on startup to allow the client language library to retrieve it in Embedded Mode.
+The TCP/IP port to bind to on localhost. This option is ignored if the `unix_domain_socket/1` option is set. Port is either a legal TCP/IP port number (integer) or a variable term like `Port`. If it is a variable, it causes the system to select a free port and unify the variable with the selected port as in `tcp_bind/2`. If the option `write_connection_values(true)` is set, the selected port is output to STDOUT followed by `\n` on startup to allow the client language library to retrieve it in ["Embedded Mode"](#language-server-embedded-mode).
 
 - unix_domain_socket(?Unix_Domain_Socket_Path_And_File)
 If set, Unix Domain Sockets will be used as the way to communicate with the server. `Unix_Domain_Socket_Path_And_File` specifies the fully qualified path and filename to use for the socket.
 
-To have one generated instead (recommended), pass `Unix_Domain_Socket_Path_And_File` as a variable when calling from the Prolog top level and the variable will be unified with a created filename. If launching in Embedded Mode (as described in the section on "Embedded Mode"), instead pass =|--create_unix_domain_socket=true|= since there isn't a way to specify variables from the command line. When generating the file, a temporary directory will be created using `tmp_file/2` and socket file will be created within that directory following the below requirements.  If the directory and file are unable to be created for some reason, language_server/1 fails.
+To have one generated instead (recommended), pass `Unix_Domain_Socket_Path_And_File` as a variable when calling from the Prolog top level and the variable will be unified with a created filename. If launching in ["Embedded Mode"](#language-server-embedded-mode), instead pass =|--create_unix_domain_socket=true|= since there isn't a way to specify variables from the command line. When generating the file, a temporary directory will be created using `tmp_file/2` and a socket file will be created within that directory following the below requirements.  If the directory and file are unable to be created for some reason, language_server/1 fails.
 
 Regardless of whether the file is specified or generated, if the option `write_connection_values(true)` is set, the fully qualified path to the generated file is output to STDOUT followed by `\n` on startup to allow the client language library to retrieve it.
 
@@ -81,13 +81,13 @@ Specifying a file to use should follow the same guidelines as the generated file
 The password required for a connection. If not specified (recommended), the server will generate one as a Prolog string type since Prolog atoms are globally visible (be sure not to convert to an atom for this reason). If `Password` is a variable it will be unified with the created password. Regardless of whether the password is specified or generated, if the option `write_connection_values(true)` is set, the password is output to STDOUT followed by `\n` on startup to allow the client language library to retrieve it. This is the recommended way to integrate the server with a language as it avoids including the password as source code. This option is only included so that a known password can be supplied for when the server is running in Standalone Mode.
 
 - query_timeout(+Seconds)
-Sets the length of time in seconds a query is allowed to run before it is cancelled. If not set, the default is no timeout (`-1`).
+Sets the default time in seconds that a query is allowed to run before it is cancelled. This can be overridden on a query by query basis. If not set, the default is no timeout (`-1`).
 
 - pending_connections(+Count)
 Sets the number of pending connections allowed for the server as in `tcp_listen/2`. If not provided, the default is `5`.
 
 - run_server_on_thread(+Run_Server_On_Thread)
-Determines whether `language_server/1` runs in the background on its own thread or blocks until the server shuts down.  Must be missing or set to `true` when running in embedded mode so that the SWI Prolog process can exit properly. If not set, the default is `true`.
+Determines whether `language_server/1` runs in the background on its own thread or blocks until the server shuts down.  Must be missing or set to `true` when running in ["Embedded Mode"](#language-server-embedded-mode) so that the SWI Prolog process can exit properly. If not set, the default is `true`.
 
 - server_thread(?Server_Thread)
 Specifies or retrieves the name of the thread the server will run on if `run_server_on_thread(true)`. Passing in an atom for Server_Thread will only set the server thread name if run_server_on_thread(true).  If `Server_Thread` is a variable, it is unified with a generated name.
@@ -96,21 +96,28 @@ Specifies or retrieves the name of the thread the server will run on if `run_ser
 Determines whether the server writes the port (or generated Unix Domain Socket) and password to STDOUT as it initializes. Used by language libraries to retrieve this information for connecting. If not set, the default is `false`.
 
 - write_output_to_file(+File)
-Redirects STDOUT and STDERR to the file path specified.  Useful for debugging the server when it is being used in Embedded Mode. If using multiple servers in one SWI Prolog instance, only set this on the first one.  Each time it is set the output will be redirected.
+Redirects STDOUT and STDERR to the file path specified.  Useful for debugging the server when it is being used in ["Embedded Mode"](#language-server-embedded-mode). If using multiple servers in one SWI Prolog instance, only set this on the first one.  Each time it is set the output will be redirected.
 
-## Language Server Messages
+## Language Server Messages {#language-server-messages}
 The messages the server responds to are described below. A few things are true for all of them:
 
 - Every connection is in its own separate thread. Opening more than one connection means the code is running concurrently.
-- Closing the socket without sending `close` and waiting for a response will halt the process if running in Embedded Mode. This is so that stopping a debugger doesn't leave the process orphaned.
+- Closing the socket without sending `close` and waiting for a response will halt the process if running in ["Embedded Mode"](#language-server-embedded-mode). This is so that stopping a debugger doesn't leave the process orphaned.
 - All messages are request/response messages. After sending, there will be exactly one response from the server.
-- Timeout in all of the commands is in seconds. Sending a variable (e.g. `_`) or `-1` means no timeout.
+- Timeout in all of the commands is in seconds. Sending a variable (e.g. `_`) will use the default timeout passed to the initial `language_server/1` predicate and `-1` means no timeout.
 - All queries are run in the default module context of `user`. `module/1` has no effect.
 
-### Language Server Message Format
+### Language Server Message Format {#language-server-message-format}
 Every language server message is a single valid Prolog term. Those that run queries have an argument which represents the query as a single term. To run several goals at once use `(goal1, goal2, ...)` as the goal term.
 
-The format of sent and received messages is identical: =|<stringByteLength>.\n<stringBytes>.\n|=. For example: =|7.\nhello.\n|=:
+The format of sent and received messages is identical (`\n` stands for the ASCII newline character which is a single byte): 
+~~~
+<stringByteLength>.\n<stringBytes>.\n. 
+~~~
+For example, to send `hello` as a message you would send this: 
+~~~
+7.\nhello.\n
+~~~
  - =|<stringByteLength>|= is the number of bytes of the string to follow (including the =|.\n|=), in human readable numbers, such as `15` for a 15 byte string. It must be followed by =|.\n|=.
  - =|<stringBytes>|= is the actual message string being sent, such as =|run(atom(a), -1).\n|=. It must always end with =|.\n|=. The character encoding used to decode and encode the string is UTF-8.
 
@@ -118,22 +125,25 @@ To send a message to the server, send a message using the message format above t
 ~~~
 18.\nrun(atom(a), -1).\n<end of stream>
 ~~~
-You will receive the response below on the receive stream of the same connection you sent on. If a message takes longer than 2 seconds, there will be "heartbeat" characters (".") at the beginning of the response message, approximately 1 every 2 seconds. So, if the query takes 6 seconds for some reason, there will be three "." characters first:
+You will receive the response below on the receive stream of the same connection you sent on. Note that the answer is in JSON format. If a message takes longer than 2 seconds, there will be "heartbeat" characters (".") at the beginning of the response message, approximately 1 every 2 seconds. So, if the query takes 6 seconds for some reason, there will be three "." characters first:
 ~~~
 ...12\ntrue([[]]).\n
 ~~~
 
-### Language Server Messages Reference
+### Language Server Messages Reference {#language-server-messages}
 
-The full list of language server messages are described below.
+The full list of language server messages are described below:
 
-#### run(Goal, Timeout)
+
+- run(Goal, Timeout)
 
 Runs `Goal` on the connection's designated query thread. Stops accepting new commands until the query is finished and it has responded with the results.  If a previous query is still in progress, waits until the previous query finishes (discarding that query's results) before beginning the new query.
 
+Timeout is in seconds and indicates a timeout for generating all results for the query. Sending a variable (e.g. `_`) will use the default timeout passed to the initial `language_server/1` predicate and `-1` means no timeout.
+
 While it is waiting for the query to complete, sends a "." character *not* in message format, just as a single character, once every two seconds to proactively ensure that the client is alive. Those should be read and discarded by the client.
 
-If a communication failure happens (during a heartbeat or otherwise), the connection is terminated, the query is aborted and (if running in Embedded Mode) the SWI Prolog process shuts down.
+If a communication failure happens (during a heartbeat or otherwise), the connection is terminated, the query is aborted and (if running in ["Embedded Mode"](#language-server-embedded-mode)) the SWI Prolog process shuts down.
 
 When completed, sends a response message using the normal message format indicating the result.
 
@@ -145,15 +155,17 @@ Response:
 |`exception(Exception)` | An arbitrary exception was not caught while running the goal. |
 |`exception(connection_failed)` | The query thread unexpectedly exited. The server will no longer be listening after this exception. |
 
-#### run_async(Goal, Timeout, Find_All)
+- run_async(Goal, Timeout, Find_All)
 
-Starts a Prolog query on the connection's designated query thread. Answers to the query, including exceptions, are retrieved afterwards by sending the `async_result/1` message (described below). The query can be cancelled by sending the `cancel_async/0` message. If a previous query is still in progress, waits until that query finishes (discarding that query's results) before responding.
+Starts a Prolog query specified by `Goal` on the connection's designated query thread. Answers to the query, including exceptions, are retrieved afterwards by sending the `async_result` message (described below). The query can be cancelled by sending the `cancel_async` message. If a previous query is still in progress, waits until that query finishes (discarding that query's results) before responding.
 
-If the socket closes before a response is sent, the connection is terminated, the query is aborted and (if running in embedded mode) the SWI Prolog process shuts down.
+Timeout is in seconds and indicates a timeout for generating all results for the query. Sending a variable (e.g. `_`) will use the default timeout passed to the initial `language_server/1` predicate and `-1` means no timeout.
 
-If it needs to wait for the previous query to complete, it will send heartbeat messages (see the `Language Server Message Format` section) while it waits.  After it responds, however, it does not send more heartbeats. This is so that it can begin accepting new commands immediately after responding so the client.
+If the socket closes before a response is sent, the connection is terminated, the query is aborted and (if running in ["Embedded Mode"](#language-server-embedded-mode)) the SWI Prolog process shuts down.
 
-`Find_All == true` means generate one response in `async_result/1` with all of the answers to the query (as in `run/2` above). `Find_All == false` generates a single response in `async_result/1` per answer.
+If it needs to wait for the previous query to complete, it will send heartbeat messages (see ["Language Server Message Format"](#language-server-message-format)) while it waits.  After it responds, however, it does not send more heartbeats. This is so that it can begin accepting new commands immediately after responding so the client.
+
+`Find_All == true` means generate one response to an `async_result` message with all of the answers to the query (as in the `run` message above). `Find_All == false` generates a single response to an  `async_result` message per answer.
 
 Response:
 
@@ -162,8 +174,8 @@ Response:
 |`exception(connection_failed)` | The goal thread unexpectedly shut down. The server will no longer be listening after this exception. |
 
 
-#### cancel_async
-Attempt to cancel a query started with `run_async/3` in a way that allows further queries to be run on this Prolog thread afterwards.
+- cancel_async
+Attempt to cancel a query started by the `run_async` message in a way that allows further queries to be run on this Prolog thread afterwards.
 
 If there is a goal running, injects a `throw(cancel_goal)` into the executing goal to attempt to stop the goal's execution. Begins accepting new commands immediately after responding. Does not inject `abort/0` because this would kill the connection's designated thread and the system is designed to maintain thread local data for the client. This does mean it is a "best effort" cancel since the exception can be caught.
 
@@ -171,16 +183,16 @@ If there is a goal running, injects a `throw(cancel_goal)` into the executing go
 
 To guarantee that a query is cancelled, send `close` and close the socket.
 
-It is not necessary to determine the outcome of `cancel_async/0` after sending it and receiving a response. Further queries can be immediately run. They will start after the current query stops.
+It is not necessary to determine the outcome of `cancel_async` after sending it and receiving a response. Further queries can be immediately run. They will start after the current query stops.
 
-However, if you do need to determine the outcome or determine when the query stops, send `async_result/1`. Using `Timeout = 0` is recommended since the query might have caught the exception or still be running.  Sending `async_result/1` will find out the "natural" result of the goal's execution. The "natural" result depends on the particulars of what the code actually did. The response could be:
+However, if you do need to determine the outcome or determine when the query stops, send `async_result`. Using `Timeout = 0` is recommended since the query might have caught the exception or still be running.  Sending `async_result` will find out the "natural" result of the goal's execution. The "natural" result depends on the particulars of what the code actually did. The response could be:
 
 |`exception(cancel_goal)` | The query was running and did not catch the exception. I.e. the goal was successfully cancelled. |
 |`exception(time_limit_exceeded)` | The query timed out before getting cancelled. |
 |`exception(Exception)` | They query hits another exception before it has a chance to be cancelled. |
 | A valid answer | The query finished before being cancelled. |
 
-Note that you will need to continue sending `async_result/1` until you receive an `exception(Exception)` message if you want to be sure the query is finished (see documentation for `async_result/1`).
+Note that you will need to continue sending `async_result` until you receive an `exception(Exception)` message if you want to be sure the query is finished (see documentation for `async_result`).
 
 Response:
 
@@ -189,20 +201,22 @@ Response:
 | `exception(connection_failed)` | The connection has been unexpectedly shut down. The server will no longer be listening after this exception. |
 
 
-#### async_result(Timeout)
-Get results from a query that was run via `run_async/3`. Used to get results for all cases: if the query terminates normally, is cancelled by `cancel_async/0`, or times out. Each call responds with one result and, when there are no more results, responds with `exception(no_more_results)` or whatever exception stopped the query. Receiving any `exception` response except `exception(result_not_available)` means there are no more results. If `run_async/3` was run with `Find_All == false`, multiple `async_result/1` messages may be required before receiving the final exception.
+- async_result(Timeout) 
+Get results from a query that was started via a `run_async` message. Used to get results for all cases: if the query terminates normally, is cancelled by sending a `cancel_async` message, or times out. 
 
-Waits `Timeout` seconds for a result (`Timeout == -1` means forever). If the timeout is exceeded and no results are ready, sends `exception(result_not_available)`.
+Each response to an `async_result` message responds with one result and, when there are no more results, responds with `exception(no_more_results)` or whatever exception stopped the query. Receiving any `exception` response except `exception(result_not_available)` means there are no more results. If `run_async` was run with `Find_All == false`, multiple `async_result` messages may be required before receiving the final exception.
+
+Waits `Timeout` seconds for a result. `Timeout == -1` or sending a variable for Timeout indicates no timeout. If the timeout is exceeded and no results are ready, sends `exception(result_not_available)`.
 
 Some examples:
 
-|If the query succeeds with N answers...                             | `async_result/1` messages 1 to N will receive each answer in order and `async_result/1` message N+1 will receive `exception(no_more_results)` |
-|If the query fails (i.e. has no answers)...                         | `async_result/1` message 1 will receive `false` and `async_result/1` message 2 will receive `exception(no_more_results)` |
-|If the query times out after one answer...                          | `async_result/1` message 1 will receive the first answer and `async_result/1` message 2 will receive `exception(time_limit_exceeded)` |
-|If the query is cancelled after it had a chance to get 3 answers... | `async_result/1` messages 1 to 3 will receive each answer in order and `async_result/1` message 4 will receive `exception(cancel_goal)` |
-|If the query throws an exception before returning any results...    | `async_result/1` message 1 will receive `exception(Exception)`|
+|If the query succeeds with N answers...                             | `async_result` messages 1 to N will receive each answer, in order,  and `async_result` message N+1 will receive `exception(no_more_results)` |
+|If the query fails (i.e. has no answers)...                         | `async_result` message 1 will receive `false` and `async_result` message 2 will receive `exception(no_more_results)` |
+|If the query times out after one answer...                          | `async_result` message 1 will receive the first answer and `async_result` message 2 will receive `exception(time_limit_exceeded)` |
+|If the query is cancelled after it had a chance to get 3 answers... | `async_result` messages 1 to 3 will receive each answer, in order,  and `async_result` message 4 will receive `exception(cancel_goal)` |
+|If the query throws an exception before returning any results...    | `async_result` message 1 will receive `exception(Exception)`|
 
-Note that, after sending `cancel_async/0`, calling `async_result/1` will return the "natural" result of the goal's execution. The "natural" result depends on the particulars of what the code actually did since this is multi-threaded and there are race conditions. This is described more below in the response section and above in `cancel_async/0`.
+Note that, after sending `cancel_async`, calling `async_result` will return the "natural" result of the goal's execution. The "natural" result depends on the particulars of what the code actually did since this is multi-threaded and there are race conditions. This is described more below in the response section and above in `cancel_async`.
 
 Response:
 
@@ -211,14 +225,14 @@ Response:
 |`exception(no_query)` | There is no query in progress.|
 |`exception(result_not_available)` | There is a running query and no results were available in `Timeout` seconds.|
 |`exception(no_more_results)` | There are no more answers and no other exception occurred. |
-|`exception(cancel_goal)`| The next answer is an exception caused by `cancel_async/0`. Indicates no more answers. |
+|`exception(cancel_goal)`| The next answer is an exception caused by `cancel_async`. Indicates no more answers. |
 |`exception(time_limit_exceeded)`| The query timed out generating the next answer (possibly in a race condition before getting cancelled).  Indicates no more answers. |
-|`exception(Exception)`| The next answer is an arbitrary exception. This can happen after `cancel_async/0` if the `cancel_async/0` exception is caught or the code hits another exception first.  Indicates no more answers. |
+|`exception(Exception)`| The next answer is an arbitrary exception. This can happen after `cancel_async` if the `cancel_async` exception is caught or the code hits another exception first.  Indicates no more answers. |
 |`exception(connection_failed)`| The goal thread unexpectedly exited. The server will no longer be listening after this exception.|
 
 
-#### close
-Closes a connection cleanly, indicating that the subsequent socket close is not a connection failure. Thus it doesn't shutdown the server in Embedded Mode.  The response must be processed by the client before closing the socket or it will be interpreted as a connection failure.
+- close
+Closes a connection cleanly, indicating that the subsequent socket close is not a connection failure. Thus it doesn't shutdown the server in ["Embedded Mode"](#language-server-embedded-mode).  The response must be processed by the client before closing the socket or it will be interpreted as a connection failure.
 
 Any asynchronous query that is still running will be halted by using `abort/0` in the connection's query thread.
 
@@ -226,7 +240,7 @@ Response:
 `true([[]])`
 
 
-#### quit
+- quit
 Stops the server and ends the SWI Prolog process. This allows client language libraries to ask for an orderly shutdown of the Prolog process.
 
 Response:
@@ -238,7 +252,6 @@ Response:
 :- use_module(library(http/json_convert)).
 :- use_module(library(option)).
 :- use_module(library(term_to_json)).
-
 % One for every language server running
 :- dynamic(language_server_thread/3).
 
@@ -302,7 +315,7 @@ language_server(Options) :-
 
 
 %! language_server is semidet.
-%Main entry point for running the Language Server in Embedded Mode and designed to be called from the command line. Embedded Mode is used when launching the Language Server as an embedded part of another language (e.g. Python). Calling language_server/0 from Prolog interactively is not recommended as it depends on Prolog exiting to stop the server, instead use language_server/1 for interactive use.
+%Main entry point for running the Language Server in ["Embedded Mode"](#language-server-embedded-mode) and designed to be called from the command line. Embedded Mode is used when launching the Language Server as an embedded part of another language (e.g. Python). Calling language_server/0 from Prolog interactively is not recommended as it depends on Prolog exiting to stop the server, instead use language_server/1 for interactive use.
 %
 %To launch embedded mode:
 %

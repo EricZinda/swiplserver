@@ -1,1 +1,27 @@
 - Get feedback from SWI Prolog community
+- packaging
+    - look for everywhere paxos is described and add language_server
+- Make tests run
+    - python needs to run the correct swipl
+    - Run: "/Users/ericzinda/Enlistments/swipl-devel/build/src/swipl" "-p" "foreign=:/Users/ericzinda/Enlistments/swipl-devel/build/packages/clib" "-f" "none" "--no-packs" "--on-error=status" "-s" "/Users/ericzinda/Enlistments/swipl-devel/packages/language_server/test_language_server.pl" "-g" "test_language_server" "-t" "halt"
+        that is running this.  Note that it is using the *build* directory for foreign.
+        ['-p', 'foreign=:/Users/ericzinda/Enlistments/swipl-devel/build/packages/clib', '-f', 'none', '--no-packs', '--on-error=status', '-s', '/Users/ericzinda/Enlistments/swipl-devel/packages/language_server/test_language_server.pl', '-g', 'test_language_server', '-t', 'halt']
+
+- (done) Get documentation right
+- (done) install python library (done)
+
+- read through all the docs as a new user and
+For structure of a simple package, see e.g. `packages/paxos`. Might be a
+bit too simple as it has no tests. See also the packages/sgml for tests,
+etc (but that has C code).   The overall documentation should probably
+move to a markdown file.  The toplevel doc file is processed through
+LaTeX after preprocessing.  Taking the one from paxos or one of the
+other packages as a start should be fairly simple.   Tests should go
+in files test_xyz.pl, defining a module test_xyz, exporting test_xyz/0
+that succeeds if the test succeeds.   Tests may use plunit, in which
+case test_xyz/0 calls run_tests/1 with the defined unit tests.  They
+can also do whatever they want.
+
+To test the whole stuff just create a directory below the packages
+and add your package to cmake/PackageSelection.cmake, after which the usual
+ninja and ninja install should do the job.

@@ -12,8 +12,10 @@
 
 <h1 class="file"><span style="float:right"></span>language_server_overview_doc.pl -- Prolog Language Server</h1>
 
+<h1 class="wiki" id="language-server-overview">Language Server Overview</h1>
+
 <p>
-The SWI Prolog Language Server is designed to enable "embedding" SWI Prolog into just about any programming language (Python, Go, C#, etc) in a straightforward way. It is designed for scenarios that need to use SWI Prolog as a local implementation detail of another language. Think of it as running SWI Prolog "like a library". It can support any programming language that can launch processes, read their STDOUT pipe, and send and receive JSON over TCP/IP. A Python 3.x library is provided.</p>
+The SWI Prolog Language Server is designed to enable embedding SWI Prolog into just about any programming language (Python, Go, C#, etc) in a straightforward way. It is designed for scenarios that need to use SWI Prolog as a local implementation detail of another language. Think of it as running SWI Prolog "like a library". It can support any programming language that can launch processes, read their STDOUT pipe, and send and receive JSON over TCP/IP. A Python 3 library is included as a part of SWI Prolog, see <a href="#language-server-python-installation"></a>.</p>
 
 <p>
 Key features of the server:</p>
@@ -21,9 +23,9 @@ Key features of the server:</p>
 <li>Simulates the familiar Prolog "top level" (i.e. the interactive prompt you get when running Prolog: "?-").</li>
 <li>Always runs queries from a connection on a consistent, single thread for that connection. The application itself can still be multi-threaded by running queries that use the multi-threading Prolog predicates or by opening more than one connection.</li>
 <li>Runs as a separate dedicated <b>local</b> Prolog process to simplify integration (vs. using the C-level SWI Prolog interface). The process is launched and managed by a specific running client (e.g. Python or other language) program.</li>
-<li>Communicates using sockets and JSON encoded as UTF-8 to allow it to work on any platform supported by SWI Prolog. For security reasons, only listens on TCP/IP localhost or Unix Domain Sockets and requires (or generates depending on the options) a password to open a connection.</li>
+<li>Communicates using sockets and <a href="https://www.json.org/">JSON</a> encoded as UTF-8 to allow it to work on any platform supported by SWI Prolog. For security reasons, only listens on TCP/IP localhost or Unix Domain Sockets and requires (or generates depending on the options) a password to open a connection.</li>
 <li>Has a lightweight text-based message format with only 6 commands: run synchronous query, run asynchronous query, retrieve asynchronous results, cancel asynchronous query, close connection and terminate the session.</li>
-<li>Communicates answers using JSON, a well-known data format supported by most languages natively or with generally available libraries.</li>
+<li>Communicates answers using <a href="https://www.json.org/">JSON</a>, a well-known data format supported by most languages natively or with generally available libraries.</li>
 </ul>
 
 <p>
@@ -34,12 +36,17 @@ The server can be used in two different modes:</p>
 </ul>
 
 <p>
-Note that the language server is related to the pengines library, but where the pengines library is focused on a client/server, multi-tenet, sandboxed environment, the language server is local, single tenet and unconstrained. Thus, when the requirement is to embed Prolog within another programming language "like a library", it can be a good solution for exposing the full power of Prolog with low integration overhead.</p>
+Note that the language server is related to the <a href="#pengine-references">pengines library</a>, but where the pengines library is focused on a client/server, multi-tenet, sandboxed environment, the language server is local, single tenet and unconstrained. Thus, when the requirement is to embed Prolog within another programming language "like a library", it can be a good solution for exposing the full power of Prolog with low integration overhead.</p>
 
-<h2 class="wiki">Installation Steps for Any Language</h2>
+<h2 class="wiki" id="language-server-python-installation">Installation Steps for Python</h2>
 
 <p>
-In order to use the language server with any programming language:</p>
+A Python 3.x library that integrates Python with SWI Prolog using the language server is included with in the <code>libs</code> directory of the SWI Prolog installation. It is also available using <code>pip install swiplserver</code>. See the <a href="https://blog.inductorsoftware.com/swiplserver/swiplserver/prologserver.html">Python swiplserver library documentation</a> for more information on how to use and install it from either location.</p>
+
+<h2 class="wiki" id="language-server-language-installation">Installation Steps for Other Languages</h2>
+
+<p>
+In general, to use the language server with any programming language:</p>
 
 <ol>
 <li>Install SWI Prolog itself on the machine the application will run on.</li>
@@ -50,7 +57,7 @@ In order to use the language server with any programming language:</p>
 </ol>
 
 <p>
-If your SWI Prolog doesn't yet include the language server:</p>
+If your SWI Prolog version doesn't yet include the language server:</p>
 
 <ol>
 <li>Download the <code>language_server.pl</code> file from the <a href="https://github.com/EricZinda/swiplserver/tree/main/language_server">GitHub repository</a>.</li>
@@ -61,10 +68,30 @@ If your SWI Prolog doesn't yet include the language server:</p>
 <pre class="code" ext="">
 swipl -s language_server.pl -g "language_server:install_to_library('language_server.pl')" -t halt</pre>
 
-<h2 class="wiki">Prolog Language Differences from the Top Level</h2>
+<h2 class="wiki" id="language-server-toplevel-differences">Prolog Language Differences from the Top Level</h2>
 
 <p>
-The language server is designed to act like using the "top level" prompt of SWI Prolog itself (i.e. the "?-" prompt). If you've built the Prolog part of your application by loading code, running it and debugging it using the normal SWI Prolog top level, integrating it with your native language should be straightforward: simply run the commands you'd normally run on the top level, but now run them using the query APIs provided by the library built for your target language. Those APIs will allow you to send the exact same text to Prolog and they should execute the same way.</p>
+The language server is designed to act like using the <a href="#quickstart">"top level"</a> prompt of SWI Prolog itself (i.e. the "?-" prompt). If you've built the Prolog part of your application by loading code, running it and debugging it using the normal SWI Prolog top level, integrating it with your native language should be straightforward: simply run the commands you'd normally run on the top level, but now run them using the query APIs provided by the library built for your target language. Those APIs will allow you to send the exact same text to Prolog and they should execute the same way. Here's an example using the Python <code>swiplserver</code> library:</p>
+
+<pre class="code" ext="">
+% Prolog Top Level
+?- member(X, [first, second, third]).
+X = first ;
+X = second ;
+X = third.</pre>
+
+<pre class="code" ext="">
+# Python using the swiplserver library
+from swiplserver import PrologServer, PrologThread
+
+with PrologServer() as server:
+    with server.create_thread() as prolog_thread:
+        result = prolog_thread.query("member(X, [first, second, third]).")
+        print(result)
+
+first
+second
+third</pre>
 
 <p>
 While the query functionality of the language server does run on a thread, it will always be the <b>same</b> thread, and, if you use a single connection, it will only allow queries to be run one at a time, just like the top level. Of course, the queries you send can launch threads, just like the top level, so you are not limited to a single threaded application. There are a few differences from the top level, however:</p>
@@ -77,13 +104,13 @@ While the query functionality of the language server does run on a thread, it wi
 <p>
 The basic rule to remember is: any predicates designed to interact with or change the default behavior of the top level itself probably won't have any effect.</p>
 
-<h2 class="wiki">Embedded Mode: Integrating the Language Server Into a New Programming Language</h2>
+<h2 class="wiki" id="language-server-embedded-mode">Embedded Mode: Integrating the Language Server Into a New Programming Language</h2>
 
 <p>
-The most common way to use the language server is to find a library that wraps and exposes it as a native part of another programming language such as Python. This section describes how to build one if there isn't yet a library for your language. To do this, you'll need to familiarize yourself with the server protocol as described in the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=language_server/1">language_server/1</a> documentation. However, to give an idea of the scope of work required, below is a typical interaction done (invisibly to the user) in the implementation of any programming language library:</p>
+The most common way to use the language server is to find a library that wraps and exposes it as a native part of another programming language such as the <a href="#language-server-python-installation">Python <code>swiplserver</code> library</a>. This section describes how to build one if there isn't yet a library for your language. To do this, you'll need to familiarize yourself with the server protocol as described in the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=language_server/1">language_server/1</a> documentation. However, to give an idea of the scope of work required, below is a typical interaction done (invisibly to the user) in the implementation of any programming language library:</p>
 
 <ol>
-<li>Launch the SWI Prolog process using (along with any other options the user requests): <code>swipl --quiet -g language_server -t halt -- --write_connection_values=true</code>. To work, the <code>swipl</code> Prolog executable will need to be on the path or specified in the command. This launches the server and writes the chosen port and password to STDOUT. This way of launching invokes the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=language_server/0">language_server/0</a> predicate that turns off the <code>int</code> (i.e. Interrupt/SIGINT) signal to Prolog. This is because some languages (such as Python) use that signal during debugging and it would be otherwise passed to the client Prolog process and switch it into the debugger. See the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=language_server/0">language_server/0</a> predicate for more information on passing other Options on the command line.</li>
+<li>Launch the SWI Prolog process using (along with any other options the user requests): <code>swipl --quiet -g language_server -t halt -- --write_connection_values=true</code>. To work, the <code>swipl</code> Prolog executable will need to be on the path or specified in the command. This launches the server and writes the chosen port and password to STDOUT. This way of launching invokes the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=language_server/0">language_server/0</a> predicate that turns off the <code>int</code> (i.e. Interrupt/SIGINT) signal to Prolog. This is because some languages (such as Python) use that signal during debugging and it would be otherwise passed to the client Prolog process and switch it into the debugger. See the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=language_server/0">language_server/0</a> predicate for more information on other command line options.</li>
 <li>Read the SWI Prolog STDOUT to retrieve the TCP/IP port and password. They are sent in that order, delimited by '\n'.</li>
 </ol>
 
@@ -96,12 +123,12 @@ $ swipl --quiet -g language_server -t halt -- --write_connection_values=true
 Now the server is started. To create a connection:</p>
 
 <ol>
-<li>Use the language's TCP/IP sockets library to open a socket on the specified port of localhost and send the password as a message. Messages to and from the server are in the form <code>&lt;stringByteLength&gt;.\n&lt;stringBytes&gt;.\n </code> where <code>stringByteLength</code> includes the <code>.\n</code> from the string. For example: <code>7.\nhello.\n</code> More information on the message format is in the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=language_server/1">language_server/1</a> documentation.</li>
-<li>Listen on the socket for a response message of <code>true([[threads(Comm_Thread_ID, Goal_Thread_ID)]])</code> (which will be in JSON form) indicating successful creation of the connection. <var>Comm_Thread_ID</var> and <var>Goal_Thread_ID</var> are the two threads that are used for the connection. They are sent solely for monitoring and debugging purposes.</li>
+<li>Use the language's TCP/IP sockets library to open a socket on the specified port of localhost and send the password as a message. Messages to and from the server are in the form <code>&lt;stringByteLength&gt;.\n&lt;stringBytes&gt;.\n </code> where <code>stringByteLength</code> includes the <code>.\n</code> from the string. For example: <code>7.\nhello.\n</code> More information on the <a href="#language-server-message-format">message format</a> is below.</li>
+<li>Listen on the socket for a response message of <code>true([[threads(Comm_Thread_ID, Goal_Thread_ID)]])</code> (which will be in JSON form) indicating successful creation of the connection. <var>Comm_Thread_ID</var> and <var>Goal_Thread_ID</var> are the internal Prolog IDs of the two threads that are used for the connection. They are sent solely for monitoring and debugging purposes.</li>
 </ol>
 
 <p>
-We can test using the Unix tool <code>netcat</code> (also available for windows) to interactively connect to the server. In <code>netcat</code>: hitting enter sends <code>\n</code> and the server responses are recorded inline. I've indented the server responses below to clarify.</p>
+We can try all of this using the Unix tool <code>netcat</code> (also available for Windows) to interactively connect to the server. In <code>netcat</code> hitting <code>enter</code> sends <code>\n</code> which is what the message format requires. The server responses are show indented inline.</p>
 
 <p>
 We'll use the port and password that were sent to STDOUT above:</p>
@@ -130,13 +157,13 @@ $ nc 127.0.0.1 54501
 Now the connection is established. To run queries and shutdown:</p>
 
 <ol>
-<li>Any of the messages described in the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=language_server/1">language_server/1</a> documentation can now be sent to run queries and retrieve their answers. For example, send the message <code>run(atom(a), -1)</code> to run the synchronous query <code>atom(a)</code> with no timeout and wait for the response message. It will be <code>true([[]])</code> (in JSON form).</li>
+<li>Any of the messages described in the <a href="#language-server-messages">language server messages documentation</a> can now be sent to run queries and retrieve their answers. For example, send the message <code>run(atom(a), -1)</code> to run the synchronous query <code>atom(a)</code> with no timeout and wait for the response message. It will be <code>true([[]])</code> (in JSON form).</li>
 <li>Shutting down the connection is accomplished by sending the message <code>close</code>, waiting for the response message of <code>true([[]])</code> (in JSON form), and then closing the socket using the socket API of the language. If the socket is closed (or fails) before the <code>close</code> message is sent, the default behavior of the server is to exit the SWI Prolog process to avoid leaving the process around. This is to support scenarios where the user is running and halting their language debugger without cleanly exiting.</li>
 <li>Shutting down the launched server is accomplished by sending the <code>quit</code> message and waiting for the response message of <code>true([[]])</code> (in JSON form). This will cause an orderly shutdown and exit of the process.</li>
 </ol>
 
 <p>
-Continuing with the <code>netcat</code> session (<code>quit</code> isn't shown since <code>close</code> closes the connection):</p>
+Continuing with the <code>netcat</code> session (the <code>quit</code> message isn't shown since the <code>close</code> message closes the connection):</p>
 
 <pre class="code" ext="">
 18.
@@ -149,10 +176,10 @@ close.
     {"args": [ [ [] ] ], "functor":"true"}</pre>
 
 <p>
-Note that Unix Domain Sockets can be used instead of a TCP/IP port. How to do this is described in the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=language_server/1">language_server/1</a> Options documentation.</p>
+Note that Unix Domain Sockets can be used instead of a TCP/IP port. How to do this is described in the language server Options <a href="#language-server-options">documentation</a>.</p>
 
 <p>
-Here's the same example running in the R language. Note that this is <b>not</b> an example of how to use language_server from R, it just shows the first code a developer would write as they begin to build a nice library to connect R to Prolog using the language_server:</p>
+Here's the same example running in the R language. Note that this is <b>not</b> an example of how to use the language server from R, it just shows the first code a developer would write as they begin to build a nice library to connect R to Prolog using the language server:</p>
 
 <pre class="code" ext="">
 # Server run with: swipl language_server.pl --port=40001 --password=123
@@ -202,24 +229,41 @@ And here's the output:</p>
 <p>
 Other notes about creating a new library to communicate with the language server:</p>
 <ul>
-<li>Please use the Python library as a reference when designing your language library and use similar names and approaches where appropriate. This will give familiarity and faster learning for users that use more than one language.</li>
+<li>Where appropriate, use similar names and approaches to the <a href="https://github.com/EricZinda/swiplserver">Python library</a> when designing your language library. This will give familiarity and faster learning for users that use more than one language.</li>
 <li>Use the <a class="builtin" href="http://www.swi-prolog.org/pldoc/man?predicate=debug/1">debug/1</a> predicate described in the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=language_server/1">language_server/1</a> documentation to turn on debug tracing. It can really speed up debugging.</li>
 <li>Read the STDOUT and STDERR output of the SWI Prolog process and output them to the debugging console of the native language to help users debug their Prolog application.</li>
 </ul>
 
-<h2 class="wiki">Standalone Mode: Debugging Prolog Code Used in an Application</h2>
+<h2 class="wiki" id="language-server-standalone-mode">Standalone Mode: Debugging Prolog Code Used in an Application</h2>
 
 <p>
-When using the language server from another language, debugging the Prolog code itself can often be done by viewing traces from the Prolog native <a class="builtin" href="http://www.swi-prolog.org/pldoc/man?predicate=writeln/1">writeln/1</a> or <a class="builtin" href="http://www.swi-prolog.org/pldoc/man?predicate=debug/3">debug/3</a> predicates and viewing their output in the debugger of the native language used. Sometimes an issue occurs deep in an application and a way to run the application in the native language while setting breakpoints and viewing traces in Prolog itself is the best approach. Standalone mode is designed for this scenario.</p>
+When using the language server from another language, debugging the Prolog code itself can often be done by viewing traces from the Prolog native <a class="builtin" href="http://www.swi-prolog.org/pldoc/man?predicate=writeln/1">writeln/1</a> or <a class="builtin" href="http://www.swi-prolog.org/pldoc/man?predicate=debug/3">debug/3</a> predicates. Their output will be shown in the debugger of the native language used. Sometimes an issue surfaces deep in an application and a way to run the application in the native language while setting breakpoints and viewing traces in Prolog itself is the best approach. Standalone mode is designed for this scenario.</p>
 
 <p>
-As the language server is a multithreaded application, debugging the running code requires using the multithreaded debugging features of SWI Prolog as described in the section on "Debugging Threads" in the SWI Prolog documentation. A typical flow for Standalone Mode is:</p>
+As the language server is a multithreaded application, debugging the running code requires using the multithreaded debugging features of SWI Prolog as described in the section on <a href="#threaddebug">"Debugging Threads"</a> in the SWI Prolog documentation. A typical flow for Standalone Mode is:</p>
 
 <ol>
 <li>Launch SWI Prolog and call the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=language_server/1">language_server/1</a> predicate specifying a port and password. Use the <a class="builtin" href="http://www.swi-prolog.org/pldoc/man?predicate=tdebug/0">tdebug/0</a> predicate to set all threads to debugging mode like this: <code>tdebug, language_server([port(4242), password(debugnow)])</code>.</li>
 <li>Set the port and password in the initialization API in the native language being used.</li>
 <li>Launch the application and go through the steps to reproduce the issue.</li>
 </ol>
+
+<p>
+In Python this would look like:</p>
+
+<pre class="code" ext="">
+% From the SWI Prolog top level
+?- tdebug, language_server([port(4242), password(debugnow)]).
+% The graphical front-end will be used for subsequent tracing
+true.</pre>
+
+<pre class="code" ext="">
+# Python using the swiplserver library
+from swiplserver import PrologServer, PrologThread
+
+with PrologServer(4242, "debugnow") as server:
+    with server.create_thread() as prolog_thread:
+        # Your code to be debugged here</pre>
 
 <p>
 At this point, all of the multi-threaded debugging tools in SWI Prolog are available for debugging the problem. If the issue is an unexpected exception, the exception debugging features of SWI Prolog can be used to break on the exception and examine the state of the application. If it is a logic error, breakpoints can be set to halt at the point where the problem appears, etc.</p>

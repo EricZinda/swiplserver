@@ -13,10 +13,10 @@
 <h1 class="file"><span style="float:right"></span>language_server.pl</h1>
 
 <dl>
-<dt class="pubdef"><span style="float:right">&nbsp;</span><a name="language_server/1"><b class="pred">language_server</b><var class="arglist">(+Options:list)</var></a> is <b class="det">semidet</b></dt><dd class="defbody">Starts a Prolog language server using <var>Options</var>. The server is normally started automatically by a library built for a particular programming language, but starting manually can be useful when debugging Prolog code in some scenarios. See the documentation on "Standalone Mode" for more information.
+<dt class="pubdef"><span style="float:right">&nbsp;</span><a name="language_server/1"><b class="pred">language_server</b><var class="arglist">(+Options:list)</var></a> is <b class="det">semidet</b></dt><dd class="defbody">Starts a Prolog language server using <var>Options</var>. The server is normally started automatically by a library built for a particular programming language such as the <a href="#language-server-python-installation"><code>swiplserver</code> Python library</a>, but starting manually can be useful when debugging Prolog code in some scenarios. See the documentation on <a href="#language-server-standalone-mode">"Standalone Mode"</a> for more information.
 
 <p>
-Once started, the server listens for TCP/IP or Unix Domain Socket connections and authenticates them using the password provided (or generated) before processing any messages. The messages processed by the server are described below.</p>
+Once started, the server listens for TCP/IP or Unix Domain Socket connections and authenticates them using the password provided before processing any messages. The messages processed by the server are described <a href="#language-server-messages">below</a>.</p>
 
 <p>
 For debugging, the server outputs traces using the <a class="builtin" href="http://www.swi-prolog.org/pldoc/man?predicate=debug/3">debug/3</a> predicate so that the server operation can be observed by using the <a class="builtin" href="http://www.swi-prolog.org/pldoc/man?predicate=debug/1">debug/1</a> predicate. Run the following commands to see them:</p>
@@ -25,16 +25,16 @@ For debugging, the server outputs traces using the <a class="builtin" href="http
 <li><code>debug(language_server(query))</code>: Traces messages that involve each query and its results. Therefore it can be quite verbose depending on the query.</li>
 </ul>
 
-<h2 class="wiki"><var>Options</var></h2>
+<h2 class="wiki" id="language-server-options"><var>Options</var></h2>
 
 <p>
-<var>Options</var> is a list containing any combination of the following options. When used in the Prolog top level (i.e. in Standalone Mode), these are specified as normal Prolog options like this:</p>
+<var>Options</var> is a list containing any combination of the following options. When used in the Prolog top level (i.e. in <a href="#language-server-standalone-mode">Standalone Mode</a>), these are specified as normal Prolog options like this:</p>
 
 <pre class="code" ext="">
 language_server([unix_domain_socket(Socket), password('a password')])</pre>
 
 <p>
-When using Embedded mode (i.e. launching the server from the command line when integrating into another language) they are passed using the same name but as normal command line arguments like this:</p>
+When using <a href="#language-server-embedded-mode">"Embedded Mode"</a> they are passed using the same name but as normal command line arguments like this:</p>
 
 <pre class="code" ext="">
 swipl --quiet -g language_server -t halt -- --write_connection_values=true --password="a password" --create_unix_domain_socket=true</pre>
@@ -43,11 +43,11 @@ swipl --quiet -g language_server -t halt -- --write_connection_values=true --pas
 Note the use of quotes around values that could confuse command line processing like spaces (e.g. "a password") and that <code>unix_domain_socket(Variable)</code> is written as <code>--create_unix_domain_socket=true</code> on the command line. See below for more information.</p>
 
 <dl class="termlist">
-<dt class="term"><b class="pred">port</b><var class="arglist">(?Port)</var></dt><dd>The TCP/IP port to bind to on localhost. This option is ignored if the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=unix_domain_socket/1">unix_domain_socket/1</a> option is set. <var>Port</var> is either a legal TCP/IP port number (integer) or a variable term like <var>Port</var>. If it is a variable, it causes the system to select a free port and unify the variable with the selected port as in <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=tcp_bind/2">tcp_bind/2</a>. If the option <code>write_connection_values(true)</code> is set, the selected port is output to STDOUT followed by <code>\n</code> on startup to allow the client language library to retrieve it in Embedded Mode.</dd>
+<dt class="term"><b class="pred">port</b><var class="arglist">(?Port)</var></dt><dd>The TCP/IP port to bind to on localhost. This option is ignored if the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=unix_domain_socket/1">unix_domain_socket/1</a> option is set. <var>Port</var> is either a legal TCP/IP port number (integer) or a variable term like <var>Port</var>. If it is a variable, it causes the system to select a free port and unify the variable with the selected port as in <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=tcp_bind/2">tcp_bind/2</a>. If the option <code>write_connection_values(true)</code> is set, the selected port is output to STDOUT followed by <code>\n</code> on startup to allow the client language library to retrieve it in <a href="#language-server-embedded-mode">"Embedded Mode"</a>.</dd>
 <dt class="term"><b class="pred">unix_domain_socket</b><var class="arglist">(?Unix_Domain_Socket_Path_And_File)</var></dt><dd>If set, Unix Domain Sockets will be used as the way to communicate with the server. <var>Unix_Domain_Socket_Path_And_File</var> specifies the fully qualified path and filename to use for the socket.
 
 <p>
-To have one generated instead (recommended), pass <var>Unix_Domain_Socket_Path_And_File</var> as a variable when calling from the Prolog top level and the variable will be unified with a created filename. If launching in Embedded Mode (as described in the section on "Embedded Mode"), instead pass <code>--create_unix_domain_socket=true</code> since there isn't a way to specify variables from the command line. When generating the file, a temporary directory will be created using <a class="builtin" href="http://www.swi-prolog.org/pldoc/man?predicate=tmp_file/2">tmp_file/2</a> and socket file will be created within that directory following the below requirements. If the directory and file are unable to be created for some reason, <a href="language_server.html#language_server/1">language_server/1</a> fails.</p>
+To have one generated instead (recommended), pass <var>Unix_Domain_Socket_Path_And_File</var> as a variable when calling from the Prolog top level and the variable will be unified with a created filename. If launching in <a href="#language-server-embedded-mode">"Embedded Mode"</a>, instead pass <code>--create_unix_domain_socket=true</code> since there isn't a way to specify variables from the command line. When generating the file, a temporary directory will be created using <a class="builtin" href="http://www.swi-prolog.org/pldoc/man?predicate=tmp_file/2">tmp_file/2</a> and a socket file will be created within that directory following the below requirements. If the directory and file are unable to be created for some reason, <a href="language_server.html#language_server/1">language_server/1</a> fails.</p>
 
 <p>
 Regardless of whether the file is specified or generated, if the option <code>write_connection_values(true)</code> is set, the fully qualified path to the generated file is output to STDOUT followed by <code>\n</code> on startup to allow the client language library to retrieve it.</p>
@@ -62,33 +62,43 @@ Specifying a file to use should follow the same guidelines as the generated file
 </ul>
 </dd>
 <dt class="term"><b class="pred">password</b><var class="arglist">(?Password)</var></dt><dd>The password required for a connection. If not specified (recommended), the server will generate one as a Prolog string type since Prolog atoms are globally visible (be sure not to convert to an atom for this reason). If <var>Password</var> is a variable it will be unified with the created password. Regardless of whether the password is specified or generated, if the option <code>write_connection_values(true)</code> is set, the password is output to STDOUT followed by <code>\n</code> on startup to allow the client language library to retrieve it. This is the recommended way to integrate the server with a language as it avoids including the password as source code. This option is only included so that a known password can be supplied for when the server is running in Standalone Mode.</dd>
-<dt class="term"><b class="pred">query_timeout</b><var class="arglist">(+Seconds)</var></dt><dd>Sets the length of time in seconds a query is allowed to run before it is cancelled. If not set, the default is no timeout (<code>-1</code>).</dd>
+<dt class="term"><b class="pred">query_timeout</b><var class="arglist">(+Seconds)</var></dt><dd>Sets the default time in seconds that a query is allowed to run before it is cancelled. This can be overridden on a query by query basis. If not set, the default is no timeout (<code>-1</code>).</dd>
 <dt class="term"><b class="pred">pending_connections</b><var class="arglist">(+Count)</var></dt><dd>Sets the number of pending connections allowed for the server as in <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=tcp_listen/2">tcp_listen/2</a>. If not provided, the default is <code>5</code>.</dd>
-<dt class="term"><b class="pred">run_server_on_thread</b><var class="arglist">(+Run_Server_On_Thread)</var></dt><dd>Determines whether <a href="language_server.html#language_server/1">language_server/1</a> runs in the background on its own thread or blocks until the server shuts down. Must be missing or set to <code>true</code> when running in embedded mode so that the SWI Prolog process can exit properly. If not set, the default is <code>true</code>.</dd>
+<dt class="term"><b class="pred">run_server_on_thread</b><var class="arglist">(+Run_Server_On_Thread)</var></dt><dd>Determines whether <a href="language_server.html#language_server/1">language_server/1</a> runs in the background on its own thread or blocks until the server shuts down. Must be missing or set to <code>true</code> when running in <a href="#language-server-embedded-mode">"Embedded Mode"</a> so that the SWI Prolog process can exit properly. If not set, the default is <code>true</code>.</dd>
 <dt class="term"><b class="pred">server_thread</b><var class="arglist">(?Server_Thread)</var></dt><dd>Specifies or retrieves the name of the thread the server will run on if <code>run_server_on_thread(true)</code>. Passing in an atom for <var>Server_Thread</var> will only set the server thread name if <code>run_server_on_thread(true)</code>. If <var>Server_Thread</var> is a variable, it is unified with a generated name.</dd>
 <dt class="term"><b class="pred">write_connection_values</b><var class="arglist">(+Write_Connection_Values)</var></dt><dd>Determines whether the server writes the port (or generated Unix Domain Socket) and password to STDOUT as it initializes. Used by language libraries to retrieve this information for connecting. If not set, the default is <code>false</code>.</dd>
-<dt class="term"><b class="pred">write_output_to_file</b><var class="arglist">(+File)</var></dt><dd>Redirects STDOUT and STDERR to the file path specified. Useful for debugging the server when it is being used in Embedded Mode. If using multiple servers in one SWI Prolog instance, only set this on the first one. Each time it is set the output will be redirected.</dd>
+<dt class="term"><b class="pred">write_output_to_file</b><var class="arglist">(+File)</var></dt><dd>Redirects STDOUT and STDERR to the file path specified. Useful for debugging the server when it is being used in <a href="#language-server-embedded-mode">"Embedded Mode"</a>. If using multiple servers in one SWI Prolog instance, only set this on the first one. Each time it is set the output will be redirected.</dd>
 </dl>
 
-<h2 class="wiki">Language Server Messages</h2>
+<h2 class="wiki" id="language-server-messages">Language Server Messages</h2>
 
 <p>
 The messages the server responds to are described below. A few things are true for all of them:</p>
 <ul>
 <li>Every connection is in its own separate thread. Opening more than one connection means the code is running concurrently.</li>
-<li>Closing the socket without sending <code>close</code> and waiting for a response will halt the process if running in Embedded Mode. This is so that stopping a debugger doesn't leave the process orphaned.</li>
+<li>Closing the socket without sending <code>close</code> and waiting for a response will halt the process if running in <a href="#language-server-embedded-mode">"Embedded Mode"</a>. This is so that stopping a debugger doesn't leave the process orphaned.</li>
 <li>All messages are request/response messages. After sending, there will be exactly one response from the server.</li>
-<li>Timeout in all of the commands is in seconds. Sending a variable (e.g. <var>_</var>) or <code>-1</code> means no timeout.</li>
+<li>Timeout in all of the commands is in seconds. Sending a variable (e.g. <var>_</var>) will use the default timeout passed to the initial <a href="language_server.html#language_server/1">language_server/1</a> predicate and <code>-1</code> means no timeout.</li>
 <li>All queries are run in the default module context of <code>user</code>. <a class="builtin" href="http://www.swi-prolog.org/pldoc/man?predicate=module/1">module/1</a> has no effect.</li>
 </ul>
 
-<h3 class="wiki">Language Server Message Format</h3>
+<h3 class="wiki" id="language-server-message-format">Language Server Message Format</h3>
 
 <p>
 Every language server message is a single valid Prolog term. Those that run queries have an argument which represents the query as a single term. To run several goals at once use <code>(goal1, goal2, ...)</code> as the goal term.</p>
 
 <p>
-The format of sent and received messages is identical: <code>&lt;stringByteLength&gt;.\n&lt;stringBytes&gt;.\n</code>. For example: <code>7.\nhello.\n</code>:</p>
+The format of sent and received messages is identical (<code>\n</code> stands for the ASCII newline character which is a single byte):</p>
+
+<pre class="code" ext="">
+&lt;stringByteLength&gt;.\n&lt;stringBytes&gt;.\n.</pre>
+
+<p>
+For example, to send <code>hello</code> as a message you would send this:</p>
+
+<pre class="code" ext="">
+7.\nhello.\n</pre>
+
 <ul>
 <li><code>&lt;stringByteLength&gt;</code> is the number of bytes of the string to follow (including the <code>.\n</code>), in human readable numbers, such as <code>15</code> for a 15 byte string. It must be followed by <code>.\n</code>.</li>
 <li><code>&lt;stringBytes&gt;</code> is the actual message string being sent, such as <code>run(atom(a), -1).\n</code>. It must always end with <code>.\n</code>. The character encoding used to decode and encode the string is UTF-8.</li>
@@ -101,26 +111,27 @@ To send a message to the server, send a message using the message format above t
 18.\nrun(atom(a), -1).\n&lt;end of stream&gt;</pre>
 
 <p>
-You will receive the response below on the receive stream of the same connection you sent on. If a message takes longer than 2 seconds, there will be "heartbeat" characters (".") at the beginning of the response message, approximately 1 every 2 seconds. So, if the query takes 6 seconds for some reason, there will be three "." characters first:</p>
+You will receive the response below on the receive stream of the same connection you sent on. Note that the answer is in JSON format. If a message takes longer than 2 seconds, there will be "heartbeat" characters (".") at the beginning of the response message, approximately 1 every 2 seconds. So, if the query takes 6 seconds for some reason, there will be three "." characters first:</p>
 
 <pre class="code" ext="">
 ...12\ntrue([[]]).\n</pre>
 
-<h3 class="wiki">Language Server Messages Reference</h3>
+<h3 class="wiki" id="language-server-messages">Language Server Messages Reference</h3>
 
 <p>
-The full list of language server messages are described below.</p>
+The full list of language server messages are described below:</p>
 
-<h4 class="wiki"><code>run(Goal, Timeout)</code></h4>
+<dl class="termlist">
+<dt class="term"><b class="pred">run</b><var class="arglist">(Goal, Timeout)</var></dt><dd>Runs <var>Goal</var> on the connection's designated query thread. Stops accepting new commands until the query is finished and it has responded with the results. If a previous query is still in progress, waits until the previous query finishes (discarding that query's results) before beginning the new query.
 
 <p>
-Runs <var>Goal</var> on the connection's designated query thread. Stops accepting new commands until the query is finished and it has responded with the results. If a previous query is still in progress, waits until the previous query finishes (discarding that query's results) before beginning the new query.</p>
+<var>Timeout</var> is in seconds and indicates a timeout for generating all results for the query. Sending a variable (e.g. <var>_</var>) will use the default timeout passed to the initial <a href="language_server.html#language_server/1">language_server/1</a> predicate and <code>-1</code> means no timeout.</p>
 
 <p>
 While it is waiting for the query to complete, sends a "." character <b>not</b> in message format, just as a single character, once every two seconds to proactively ensure that the client is alive. Those should be read and discarded by the client.</p>
 
 <p>
-If a communication failure happens (during a heartbeat or otherwise), the connection is terminated, the query is aborted and (if running in Embedded Mode) the SWI Prolog process shuts down.</p>
+If a communication failure happens (during a heartbeat or otherwise), the connection is terminated, the query is aborted and (if running in <a href="#language-server-embedded-mode">"Embedded Mode"</a>) the SWI Prolog process shuts down.</p>
 
 <p>
 When completed, sends a response message using the normal message format indicating the result.</p>
@@ -136,19 +147,20 @@ Response:</p>
 <tr><td><code>exception(connection_failed)</code></td><td>The query thread unexpectedly exited. The server will no longer be listening after this exception.</td></tr>
 </table>
 
-<h4 class="wiki"><code>run_async(Goal, Timeout, Find_All)</code></h4>
+</dd>
+<dt class="term"><b class="pred">run_async</b><var class="arglist">(Goal, Timeout, Find_All)</var></dt><dd>Starts a Prolog query specified by <var>Goal</var> on the connection's designated query thread. Answers to the query, including exceptions, are retrieved afterwards by sending the <code>async_result</code> message (described below). The query can be cancelled by sending the <code>cancel_async</code> message. If a previous query is still in progress, waits until that query finishes (discarding that query's results) before responding.
 
 <p>
-Starts a Prolog query on the connection's designated query thread. Answers to the query, including exceptions, are retrieved afterwards by sending the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> message (described below). The query can be cancelled by sending the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=cancel_async/0">cancel_async/0</a> message. If a previous query is still in progress, waits until that query finishes (discarding that query's results) before responding.</p>
+<var>Timeout</var> is in seconds and indicates a timeout for generating all results for the query. Sending a variable (e.g. <var>_</var>) will use the default timeout passed to the initial <a href="language_server.html#language_server/1">language_server/1</a> predicate and <code>-1</code> means no timeout.</p>
 
 <p>
-If the socket closes before a response is sent, the connection is terminated, the query is aborted and (if running in embedded mode) the SWI Prolog process shuts down.</p>
+If the socket closes before a response is sent, the connection is terminated, the query is aborted and (if running in <a href="#language-server-embedded-mode">"Embedded Mode"</a>) the SWI Prolog process shuts down.</p>
 
 <p>
-If it needs to wait for the previous query to complete, it will send heartbeat messages (see the `Language Server Message Format` section) while it waits. After it responds, however, it does not send more heartbeats. This is so that it can begin accepting new commands immediately after responding so the client.</p>
+If it needs to wait for the previous query to complete, it will send heartbeat messages (see <a href="#language-server-message-format">"Language Server Message Format"</a>) while it waits. After it responds, however, it does not send more heartbeats. This is so that it can begin accepting new commands immediately after responding so the client.</p>
 
 <p>
-<code>Find_All == true</code> means generate one response in <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> with all of the answers to the query (as in <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=run/2">run/2</a> above). <code>Find_All == false</code> generates a single response in <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> per answer.</p>
+<code>Find_All == true</code> means generate one response to an <code>async_result</code> message with all of the answers to the query (as in the <code>run</code> message above). <code>Find_All == false</code> generates a single response to an <code>async_result</code> message per answer.</p>
 
 <p>
 Response:</p>
@@ -159,10 +171,8 @@ Response:</p>
 <tr><td><code>exception(connection_failed)</code></td><td>The goal thread unexpectedly shut down. The server will no longer be listening after this exception.</td></tr>
 </table>
 
-<h4 class="wiki">cancel_async</h4>
-
-<p>
-Attempt to cancel a query started with <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=run_async/3">run_async/3</a> in a way that allows further queries to be run on this Prolog thread afterwards.</p>
+</dd>
+<dt class="term"><span class="functor">cancel_async</span></dt><dd>Attempt to cancel a query started by the <code>run_async</code> message in a way that allows further queries to be run on this Prolog thread afterwards.
 
 <p>
 If there is a goal running, injects a <code>throw(cancel_goal)</code> into the executing goal to attempt to stop the goal's execution. Begins accepting new commands immediately after responding. Does not inject <a class="builtin" href="http://www.swi-prolog.org/pldoc/man?predicate=abort/0">abort/0</a> because this would kill the connection's designated thread and the system is designed to maintain thread local data for the client. This does mean it is a "best effort" cancel since the exception can be caught.</p>
@@ -174,10 +184,10 @@ If there is a goal running, injects a <code>throw(cancel_goal)</code> into the e
 To guarantee that a query is cancelled, send <code>close</code> and close the socket.</p>
 
 <p>
-It is not necessary to determine the outcome of <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=cancel_async/0">cancel_async/0</a> after sending it and receiving a response. Further queries can be immediately run. They will start after the current query stops.</p>
+It is not necessary to determine the outcome of <code>cancel_async</code> after sending it and receiving a response. Further queries can be immediately run. They will start after the current query stops.</p>
 
 <p>
-However, if you do need to determine the outcome or determine when the query stops, send <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a>. Using <code>Timeout = 0</code> is recommended since the query might have caught the exception or still be running. Sending <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> will find out the "natural" result of the goal's execution. The "natural" result depends on the particulars of what the code actually did. The response could be:</p>
+However, if you do need to determine the outcome or determine when the query stops, send <code>async_result</code>. Using <code>Timeout = 0</code> is recommended since the query might have caught the exception or still be running. Sending <code>async_result</code> will find out the "natural" result of the goal's execution. The "natural" result depends on the particulars of what the code actually did. The response could be:</p>
 
 <table class="wiki">
 <tr><td><code>exception(cancel_goal)</code></td><td>The query was running and did not catch the exception. I.e. the goal was successfully cancelled.</td></tr>
@@ -187,7 +197,7 @@ However, if you do need to determine the outcome or determine when the query sto
 </table>
 
 <p>
-Note that you will need to continue sending <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> until you receive an <code>exception(Exception)</code> message if you want to be sure the query is finished (see documentation for <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a>).</p>
+Note that you will need to continue sending <code>async_result</code> until you receive an <code>exception(Exception)</code> message if you want to be sure the query is finished (see documentation for <code>async_result</code>).</p>
 
 <p>
 Response:</p>
@@ -198,27 +208,28 @@ Response:</p>
 <tr><td><code>exception(connection_failed)</code></td><td>The connection has been unexpectedly shut down. The server will no longer be listening after this exception.</td></tr>
 </table>
 
-<h4 class="wiki"><code>async_result(Timeout)</code></h4>
+</dd>
+<dt class="term"><b class="pred">async_result</b><var class="arglist">(Timeout)</var></dt><dd>Get results from a query that was started via a <code>run_async</code> message. Used to get results for all cases: if the query terminates normally, is cancelled by sending a <code>cancel_async</code> message, or times out.
 
 <p>
-Get results from a query that was run via <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=run_async/3">run_async/3</a>. Used to get results for all cases: if the query terminates normally, is cancelled by <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=cancel_async/0">cancel_async/0</a>, or times out. Each call responds with one result and, when there are no more results, responds with <code>exception(no_more_results)</code> or whatever exception stopped the query. Receiving any <code>exception</code> response except <code>exception(result_not_available)</code> means there are no more results. If <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=run_async/3">run_async/3</a> was run with <code>Find_All == false</code>, multiple <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> messages may be required before receiving the final exception.</p>
+Each response to an <code>async_result</code> message responds with one result and, when there are no more results, responds with <code>exception(no_more_results)</code> or whatever exception stopped the query. Receiving any <code>exception</code> response except <code>exception(result_not_available)</code> means there are no more results. If <code>run_async</code> was run with <code>Find_All == false</code>, multiple <code>async_result</code> messages may be required before receiving the final exception.</p>
 
 <p>
-Waits <var>Timeout</var> seconds for a result (<code>Timeout == -1</code> means forever). If the timeout is exceeded and no results are ready, sends <code>exception(result_not_available)</code>.</p>
+Waits <var>Timeout</var> seconds for a result. <code>Timeout == -1</code> or sending a variable for <var>Timeout</var> indicates no timeout. If the timeout is exceeded and no results are ready, sends <code>exception(result_not_available)</code>.</p>
 
 <p>
 Some examples:</p>
 
 <table class="wiki">
-<tr><td>If the query succeeds with N answers...</td><td><a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> messages 1 to N will receive each answer in order and <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> message N+1 will receive <code>exception(no_more_results)</code></td></tr>
-<tr><td>If the query fails (i.e. has no answers)...</td><td><a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> message 1 will receive <code>false</code> and <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> message 2 will receive <code>exception(no_more_results)</code></td></tr>
-<tr><td>If the query times out after one answer...</td><td><a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> message 1 will receive the first answer and <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> message 2 will receive <code>exception(time_limit_exceeded)</code></td></tr>
-<tr><td>If the query is cancelled after it had a chance to get 3 answers...</td><td><a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> messages 1 to 3 will receive each answer in order and <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> message 4 will receive <code>exception(cancel_goal)</code></td></tr>
-<tr><td>If the query throws an exception before returning any results...</td><td><a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> message 1 will receive <code>exception(Exception)</code></td></tr>
+<tr><td>If the query succeeds with N answers...</td><td><code>async_result</code> messages 1 to N will receive each answer, in order, and <code>async_result</code> message N+1 will receive <code>exception(no_more_results)</code></td></tr>
+<tr><td>If the query fails (i.e. has no answers)...</td><td><code>async_result</code> message 1 will receive <code>false</code> and <code>async_result</code> message 2 will receive <code>exception(no_more_results)</code></td></tr>
+<tr><td>If the query times out after one answer...</td><td><code>async_result</code> message 1 will receive the first answer and <code>async_result</code> message 2 will receive <code>exception(time_limit_exceeded)</code></td></tr>
+<tr><td>If the query is cancelled after it had a chance to get 3 answers...</td><td><code>async_result</code> messages 1 to 3 will receive each answer, in order, and <code>async_result</code> message 4 will receive <code>exception(cancel_goal)</code></td></tr>
+<tr><td>If the query throws an exception before returning any results...</td><td><code>async_result</code> message 1 will receive <code>exception(Exception)</code></td></tr>
 </table>
 
 <p>
-Note that, after sending <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=cancel_async/0">cancel_async/0</a>, calling <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=async_result/1">async_result/1</a> will return the "natural" result of the goal's execution. The "natural" result depends on the particulars of what the code actually did since this is multi-threaded and there are race conditions. This is described more below in the response section and above in <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=cancel_async/0">cancel_async/0</a>.</p>
+Note that, after sending <code>cancel_async</code>, calling <code>async_result</code> will return the "natural" result of the goal's execution. The "natural" result depends on the particulars of what the code actually did since this is multi-threaded and there are race conditions. This is described more below in the response section and above in <code>cancel_async</code>.</p>
 
 <p>
 Response:</p>
@@ -229,33 +240,30 @@ Response:</p>
 <tr><td><code>exception(no_query)</code></td><td>There is no query in progress.</td></tr>
 <tr><td><code>exception(result_not_available)</code></td><td>There is a running query and no results were available in <var>Timeout</var> seconds.</td></tr>
 <tr><td><code>exception(no_more_results)</code></td><td>There are no more answers and no other exception occurred.</td></tr>
-<tr><td><code>exception(cancel_goal)</code></td><td>The next answer is an exception caused by <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=cancel_async/0">cancel_async/0</a>. Indicates no more answers.</td></tr>
+<tr><td><code>exception(cancel_goal)</code></td><td>The next answer is an exception caused by <code>cancel_async</code>. Indicates no more answers.</td></tr>
 <tr><td><code>exception(time_limit_exceeded)</code></td><td>The query timed out generating the next answer (possibly in a race condition before getting cancelled). Indicates no more answers.</td></tr>
-<tr><td><code>exception(Exception)</code></td><td>The next answer is an arbitrary exception. This can happen after <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=cancel_async/0">cancel_async/0</a> if the <a class="extmanual" href="http://www.swi-prolog.org/pldoc/man?predicate=cancel_async/0">cancel_async/0</a> exception is caught or the code hits another exception first. Indicates no more answers.</td></tr>
+<tr><td><code>exception(Exception)</code></td><td>The next answer is an arbitrary exception. This can happen after <code>cancel_async</code> if the <code>cancel_async</code> exception is caught or the code hits another exception first. Indicates no more answers.</td></tr>
 <tr><td><code>exception(connection_failed)</code></td><td>The goal thread unexpectedly exited. The server will no longer be listening after this exception.</td></tr>
 </table>
 
-<h4 class="wiki">close</h4>
-
-<p>
-Closes a connection cleanly, indicating that the subsequent socket close is not a connection failure. Thus it doesn't shutdown the server in Embedded Mode. The response must be processed by the client before closing the socket or it will be interpreted as a connection failure.</p>
+</dd>
+<dt class="term"><span class="functor">close</span></dt><dd>Closes a connection cleanly, indicating that the subsequent socket close is not a connection failure. Thus it doesn't shutdown the server in <a href="#language-server-embedded-mode">"Embedded Mode"</a>. The response must be processed by the client before closing the socket or it will be interpreted as a connection failure.
 
 <p>
 Any asynchronous query that is still running will be halted by using <a class="builtin" href="http://www.swi-prolog.org/pldoc/man?predicate=abort/0">abort/0</a> in the connection's query thread.</p>
 
 <p>
 Response:
-<code>true([[]])</code></p>
-
-<h4 class="wiki">quit</h4>
-
-<p>
-Stops the server and ends the SWI Prolog process. This allows client language libraries to ask for an orderly shutdown of the Prolog process.</p>
+<code>true([[]])</code></p></dd>
+<dt class="term"><span class="functor">quit</span></dt><dd>Stops the server and ends the SWI Prolog process. This allows client language libraries to ask for an orderly shutdown of the Prolog process.
 
 <p>
 Response:
 <code>true([[]])</code></p></dd>
-<dt class="pubdef"><span style="float:right">&nbsp;</span><a name="language_server/0"><b class="pred">language_server</b></a> is <b class="det">semidet</b></dt><dd class="defbody">Main entry point for running the Language Server in Embedded Mode and designed to be called from the command line. Embedded Mode is used when launching the Language Server as an embedded part of another language (e.g. Python). Calling <a href="language_server.html#language_server/0">language_server/0</a> from Prolog interactively is not recommended as it depends on Prolog exiting to stop the server, instead use <a href="language_server.html#language_server/1">language_server/1</a> for interactive use.
+</dl>
+
+</dd>
+<dt class="pubdef"><span style="float:right">&nbsp;</span><a name="language_server/0"><b class="pred">language_server</b></a> is <b class="det">semidet</b></dt><dd class="defbody">Main entry point for running the Language Server in <a href="#language-server-embedded-mode">"Embedded Mode"</a> and designed to be called from the command line. Embedded Mode is used when launching the Language Server as an embedded part of another language (e.g. Python). Calling <a href="language_server.html#language_server/0">language_server/0</a> from Prolog interactively is not recommended as it depends on Prolog exiting to stop the server, instead use <a href="language_server.html#language_server/1">language_server/1</a> for interactive use.
 
 <p>
 To launch embedded mode:</p>
