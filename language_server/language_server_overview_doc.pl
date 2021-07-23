@@ -21,7 +21,7 @@ The server can be used in two different modes:
     - *Embedded mode*: This is the main use case for the server. The user uses a library (just like any other library in their language of choice). That library integrates the language server as an implementation detail by launching the SWI Prolog process, connecting to it, and wrapping the protocol with a language specific interface.
     - *Standalone mode*: The user still uses a library as above, but launches SWI Prolog independently of the language. The client language library connects to that process. This allows the user to see, interact with, and debug the Prolog process while the library interacts with it.
 
-Note that the language server is related to the [pengines library](#pengine-references), but where the pengines library is focused on a client/server, multi-tenet, sandboxed environment, the language server is local, single tenet and unconstrained. Thus, when the requirement is to embed Prolog within another programming language "like a library", it can be a good solution for exposing the full power of Prolog with low integration overhead.
+Note that the language server is related to the [pengines library](pengine-references), but where the pengines library is focused on a client/server, multi-tenet, sandboxed environment, the language server is local, single tenet and unconstrained. Thus, when the requirement is to embed Prolog within another programming language "like a library", it can be a good solution for exposing the full power of Prolog with low integration overhead.
 
 ## Installation Steps for Python {#language-server-python-installation}
 A Python 3.x library that integrates Python with SWI Prolog using the language server is included with in the `libs` directory of the SWI Prolog installation. It is also available using =|pip install swiplserver|=. See the [Python swiplserver library documentation](https://blog.inductorsoftware.com/swiplserver/swiplserver/prologserver.html) for more information on how to use and install it from either location.
@@ -47,7 +47,7 @@ swipl -s language_server.pl -g "language_server:install_to_library('language_ser
 
 ## Prolog Language Differences from the Top Level {#language-server-toplevel-differences}
 
-The language server is designed to act like using the ["top level"](#quickstart) prompt of SWI Prolog itself (i.e. the "?-" prompt).  If you've built the Prolog part of your application by loading code, running it and debugging it using the normal SWI Prolog top level, integrating it with your native language should be straightforward: simply run the commands you'd normally run on the top level, but now run them using the query APIs provided by the library built for your target language. Those APIs will allow you to send the exact same text to Prolog and they should execute the same way.  Here's an example using the Python =|swiplserver|= library:
+The language server is designed to act like using the ["top level"](quickstart) prompt of SWI Prolog itself (i.e. the "?-" prompt).  If you've built the Prolog part of your application by loading code, running it and debugging it using the normal SWI Prolog top level, integrating it with your native language should be straightforward: simply run the commands you'd normally run on the top level, but now run them using the query APIs provided by the library built for your target language. Those APIs will allow you to send the exact same text to Prolog and they should execute the same way.  Here's an example using the Python =|swiplserver|= library:
 
 ~~~
 % Prolog Top Level
@@ -193,7 +193,7 @@ Other notes about creating a new library to communicate with the language server
 ## Standalone Mode: Debugging Prolog Code Used in an Application {#language-server-standalone-mode}
 When using the language server from another language, debugging the Prolog code itself can often be done by viewing traces from the Prolog native `writeln/1` or `debug/3` predicates. Their output will be shown in the debugger of the native language used.  Sometimes an issue surfaces deep in an application and a way to run the application in the native language while setting breakpoints and viewing traces in Prolog itself is the best approach. Standalone mode is designed for this scenario.
 
-As the language server is a multithreaded application, debugging the running code requires using the multithreaded debugging features of SWI Prolog as described in the section on ["Debugging Threads"](#threaddebug) in the SWI Prolog documentation. A typical flow for Standalone Mode is:
+As the language server is a multithreaded application, debugging the running code requires using the multithreaded debugging features of SWI Prolog as described in the section on ["Debugging Threads"](threaddebug) in the SWI Prolog documentation. A typical flow for Standalone Mode is:
 
     1. Launch SWI Prolog and call the `language_server/1` predicate specifying a port and password. Use the `tdebug/0` predicate to set all threads to debugging mode like this: `tdebug, language_server([port(4242), password(debugnow)])`.
     2. Set the port and password in the initialization API in the native language being used.
@@ -218,5 +218,6 @@ with PrologServer(4242, "debugnow") as server:
 At this point, all of the multi-threaded debugging tools in SWI Prolog are available for debugging the problem. If the issue is an unexpected exception, the exception debugging features of SWI Prolog can be used to break on the exception and examine the state of the application.  If it is a logic error, breakpoints can be set to halt at the point where the problem appears, etc.
 
 Note that, while using a library to access Prolog will normally end and restart the process between runs of the code, running the server standalone doesn't clear state between launches of the application.  You'll either need to relaunch between runs or build your application so that it does the initialization at startup.
+
 
 */
