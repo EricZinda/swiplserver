@@ -31,14 +31,31 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
+:- use_module(library(plunit)).
 :- use_module(language_server).
+
+% Set so that the python script can be loaded
+:- prolog_load_context(directory, Dir), working_directory(_, Dir).
 
 test_language_server :-
     run_tests([py_language_server]).
 
+% Launch the python script with command line arguments so it can, in turn,
+% launch the proper development build of prolog, passing all the same command
+% line arguments to it
 run_test_script(Script, Status):-
+    current_prolog_flag(os_argv, [Swipl | Args]),
+    (   is_absolute_file_name(Swipl)
+    ->  file_directory_name(Swipl, Swipl_Path)
+    ;   Swipl_Path = ''
+    ),
+    atomic_list_concat(Args, '~|~', Args_String),
+    writeln(Args_String),
+    writeln(data(Swipl_Path, Args_String)),
     process_create(path(python3), [Script],
-        [stdin(std), stdout(pipe(Out)), stderr(pipe(Out)), process(PID), environment(['ESSENTIAL_TESTS_ONLY'='True'])]),
+        [stdin(std), stdout(pipe(Out)), stderr(pipe(Out)), process(PID), environment(
+                ['PROLOG_PATH'=Swipl_Path, 'PROLOG_ARGS' = Args_String, 'ESSENTIAL_TESTS_ONLY'='True']
+            )]),
     read_lines(Out, Lines),
     writeln(Lines),
     process_wait(PID, Status).
@@ -46,7 +63,7 @@ run_test_script(Script, Status):-
 :- begin_tests(py_language_server, []).
 
 test(language_server):-
-    run_test_script('../swiplserver/test_prologserver.py', Status),
+    run_test_script('python/test_prologserver.py', Status),
     assertion(Status == exit(0)).
 
 :- end_tests(py_language_server).
@@ -57,6 +74,7 @@ read_lines(Out, Lines) :-
 
 read_lines(end_of_file, _, []) :- !.
 read_lines(Codes, Out, [Line|Lines]) :-
-        atom_codes(Line, Codes),
+        atom_codes(Line_Initial, Codes),
+        atomic_list_concat([Line_Initial, '\n'], Line),
         read_line_to_codes(Out, Line2),
         read_lines(Line2, Out, Lines).

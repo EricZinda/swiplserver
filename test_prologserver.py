@@ -3,16 +3,17 @@ import json
 import logging
 import os
 from datetime import time
-from tempfile import gettempdir
+from tempfile import gettempdir, mkdtemp
 import sys
 import unittest
 import threading
 from time import sleep, perf_counter
 from unittest import TestSuite
-
-from prologserver import *
+from swiplserver import *
 from pathlib import PurePath, PurePosixPath, PureWindowsPath, Path
-
+import subprocess
+from contextlib import suppress
+import tempfile
 
 # From: https://eli.thegreenplace.net/2011/08/02/python-unit-testing-parametrized-test-cases/
 class ParametrizedTestCase(unittest.TestCase):
@@ -26,6 +27,8 @@ class ParametrizedTestCase(unittest.TestCase):
         self.serverPort = serverPort
         self.password = password
         self.essentialOnly = essentialOnly
+        self.prologPath = os.getenv('PROLOG_PATH') if os.getenv('PROLOG_PATH') else None
+        self.prologArgs = prologArgs
 
     @staticmethod
     def parametrize(testcase_klass, essentialOnly = False, test_item_name = None, launchServer = True, useUnixDomainSocket = None, serverPort= None, password= None):
@@ -53,14 +56,18 @@ class TestPrologServer(ParametrizedTestCase):
     def tearDown(self):
         # Make sure we aren't leaving processes around
         # Give the process a bit to exit
-        count = 0
-        while count < 5:
-            currentCount = self.process_count("swipl")
-            if currentCount == self.initialProcessCount:
-                break
-            else:
-                sleep(2)
-        self.assertEqual(currentCount, self.initialProcessCount)
+        # Since this takes time, and won't work when running in SWI Prolog build process
+        # Turn it off if essentialOnly
+        if not essentialOnly:
+            count = 0
+            while count < 5:
+                currentCount = self.process_count("swipl")
+                if currentCount == self.initialProcessCount:
+                    break
+                else:
+                    sleep(2)
+                count += 1
+            self.assertEqual(currentCount, self.initialProcessCount)
 
         # If we're using a Unix Domain Socket, make sure the file was cleaned up
         self.assertTrue(self.useUnixDomainSocket is None or not os.path.exists(self.useUnixDomainSocket))
@@ -184,7 +191,7 @@ class TestPrologServer(ParametrizedTestCase):
         self.assertEqual([[{'X': {'args': ['a', 'a'], 'functor': '='}, 'Y': 'a'}], 'time_limit_exceeded'], results)
 
     def test_json_to_prolog(self):
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             with server.create_thread() as client:
                 # Test non-quoted terms
                 self.round_trip_prolog(client, "a")
@@ -213,7 +220,7 @@ class TestPrologServer(ParametrizedTestCase):
                 self.round_trip_prolog(client, "'a b'(['1b', 'a b'])")
 
     def test_sync_query(self):
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             with server.create_thread() as client:
                 # Most basic query with single answer and no free variables
                 result = client.query("atom(a)")
@@ -262,14 +269,14 @@ class TestPrologServer(ParametrizedTestCase):
             print("skipped")
             return
 
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             with server.create_thread() as client:
                 # query that is long enough to send heartbeats but eventually succeeds
                 self.assertTrue(client.query("sleep(5)"))
                 self.assertGreater(client._heartbeat_count, 0)
 
     def test_async_query(self):
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             with server.create_thread() as client:
                 # Cancelling while nothing is happening should throw
                 caughtException = False
@@ -399,7 +406,7 @@ class TestPrologServer(ParametrizedTestCase):
             print("skipped")
             return
 
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             with server.create_thread() as client:
                 # Async query that checks for second result before it is available
                 client.query_async("(member(X, [Y=a, sleep(3), Y=b]), X)", query_timeout_seconds= 10, find_all=False)
@@ -424,7 +431,7 @@ class TestPrologServer(ParametrizedTestCase):
             print("skipped")
             return
 
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             with server.create_thread() as client:
                 # Call two async queries in a row. Should work and return the second results at least 1 heartbeat should be sent
                 # in the response
@@ -449,7 +456,7 @@ class TestPrologServer(ParametrizedTestCase):
             print("skipped")
             return
 
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             with server.create_thread() as monitorThread:
                 # Closing a connection with an synchronous query running should abort the query and terminate the threads expectedly
                 with server.create_thread() as prologThread:
@@ -498,7 +505,7 @@ class TestPrologServer(ParametrizedTestCase):
             print("skipped")
             return
 
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             with server.create_thread() as monitorThread:
                 with server.create_thread() as controlThread:
                     # Will keep the mutex since the thread is kept alive
@@ -535,7 +542,7 @@ class TestPrologServer(ParametrizedTestCase):
 
     def test_multiple_serial_connections(self):
         # Multiple connections can run serially
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             with server.create_thread() as prologThread:
                 result = prologThread.query("true")
                 self.assertEqual(result, True)
@@ -550,7 +557,7 @@ class TestPrologServer(ParametrizedTestCase):
 
     def test_goal_thread_failure(self):
         # If the goal thread fails, we should get a specific exception and the thread should be left for inspection
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             with server.create_thread() as prologThread:
                 # Force the goal thread to throw outside of the "safe zone" and shutdown unexpectedly
                 prologThread._send("testThrowGoalThread(test_exception).\n")
@@ -574,7 +581,7 @@ class TestPrologServer(ParametrizedTestCase):
 
     def test_quit(self):
         # Sending quit should shutdown the server")
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             with server.create_thread() as prologThread:
                 prologThread.halt_server()
                 # Finding a reliable way to detect if the process is gone
@@ -583,7 +590,7 @@ class TestPrologServer(ParametrizedTestCase):
 
     def test_unknown_command(self):
         # Sending an unknown command should throw")
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             with server.create_thread() as prologThread:
                 # Force the goal thread to throw outside of the "safe zone" and shutdown unexpectedly
                 prologThread._send("foo.\n")
@@ -591,7 +598,7 @@ class TestPrologServer(ParametrizedTestCase):
                 assert prolog_name(result) == "exception" and prolog_name(prolog_args(result)[0]) == "unknownCommand"
 
     def test_server_options_and_shutdown(self):
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             with server.create_thread() as monitorThread:
                 # Record the threads that are running, but give a pause so any threads created by the server on startup
                 # can get closed down
@@ -602,7 +609,7 @@ class TestPrologServer(ParametrizedTestCase):
                 result = monitorThread.query("language_server([port(Port), password(testpassword), server_thread(ServerThreadID)])")
                 serverThreadID = result[0]["ServerThreadID"]
                 port = result[0]["Port"]
-                with PrologServer(launch_server=False, port=port, password="testpassword") as newServer:
+                with PrologServer(launch_server=False, port=port, password="testpassword", prolog_path=self.prologPath) as newServer:
                     with newServer.create_thread() as prologThread:
                         result = prologThread.query("true")
                         self.assertEqual(result, True)
@@ -613,11 +620,11 @@ class TestPrologServer(ParametrizedTestCase):
 
                 if os.name != "nt":
                     # unixDomainSocket() should be used if supplied (non-windows).
-                    socketPath = os.path.dirname(os.path.realpath(__file__))
+                    socketPath = mkdtemp()
                     unixDomainSocket = PrologServer.unix_domain_socket_file(socketPath)
                     result = monitorThread.query("language_server([unix_domain_socket('{}'), password(testpassword), server_thread(ServerThreadID)])".format(unixDomainSocket))
                     serverThreadID = result[0]["ServerThreadID"]
-                    with PrologServer(launch_server=False, unix_domain_socket=unixDomainSocket, password="testpassword") as newServer:
+                    with PrologServer(launch_server=False, unix_domain_socket=unixDomainSocket, password="testpassword", prolog_path=self.prologPath) as newServer:
                         with newServer.create_thread() as prologThread:
                             result = prologThread.query("true")
                             self.assertEqual(result, True)
@@ -631,7 +638,7 @@ class TestPrologServer(ParametrizedTestCase):
                     result = monitorThread.query("language_server([unix_domain_socket(Socket), password(testpassword), server_thread(ServerThreadID)])")
                     serverThreadID = result[0]["ServerThreadID"]
                     unixDomainSocket = result[0]["Socket"]
-                    with PrologServer(launch_server=False, unix_domain_socket=unixDomainSocket, password="testpassword") as newServer:
+                    with PrologServer(launch_server=False, unix_domain_socket=unixDomainSocket, password="testpassword", prolog_path=self.prologPath) as newServer:
                         with newServer.create_thread() as prologThread:
                             result = prologThread.query("true")
                             self.assertEqual(result, True)
@@ -661,7 +668,7 @@ class TestPrologServer(ParametrizedTestCase):
                     assert exceptionCaught
 
                     # Ensure the server started by sending it a query
-                    with PrologServer(launch_server=False, port=socketPort, password="testpassword") as newServer:
+                    with PrologServer(launch_server=False, port=socketPort, password="testpassword", prolog_path=self.prologPath) as newServer:
                         with newServer.create_thread() as prologThread:
                             result = prologThread.query("true")
                             self.assertEqual(result, True)
@@ -698,7 +705,7 @@ class TestPrologServer(ParametrizedTestCase):
             print("skipped")
             return
 
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             with server.create_thread() as monitorThread:
                 # Record the threads that are running, but give a pause so any threads created by the server on startup
                 # can get closed down
@@ -734,7 +741,7 @@ class TestPrologServer(ParametrizedTestCase):
                     ("language_server([query_timeout(1), port({}), password(testpassword), server_thread(ServerThreadID)])".format
                         (socketPort))
                 serverThreadID = result[0]["ServerThreadID"]
-                with PrologServer(launch_server=False, port=socketPort, password="testpassword") as newServer:
+                with PrologServer(launch_server=False, port=socketPort, password="testpassword", prolog_path=self.prologPath) as newServer:
                     with newServer.create_thread() as prologThread:
                         self.sync_query_timeout(prologThread, sleepForSeconds=2, queryTimeout=None)
                         self.async_query_timeout(prologThread, sleepForSeconds=2, queryTimeout=None)
@@ -748,7 +755,7 @@ class TestPrologServer(ParametrizedTestCase):
                     ("language_server([port({}), password(testpassword), server_thread(ServerThreadID)])".format
                         (socketPort))
                 serverThreadID = result[0]["ServerThreadID"]
-                with PrologServer(launch_server=False, port=socketPort, password="testpassword") as newServer:
+                with PrologServer(launch_server=False, port=socketPort, password="testpassword", prolog_path=self.prologPath) as newServer:
                     with newServer.create_thread() as prologThread:
                         prologThread.query_async("sleep(20)")
                 # Wait for query to start running
@@ -761,25 +768,25 @@ class TestPrologServer(ParametrizedTestCase):
 
     def test_unix_domain_socket_embedded(self):
         if os.name != "nt":
-            with PrologServer(launch_server=True, unix_domain_socket="", password="testpassword") as newServer:
+            with PrologServer(launch_server=True, unix_domain_socket="", password="testpassword", prolog_path=self.prologPath) as newServer:
                 with newServer.create_thread() as prologThread:
                     result = prologThread.query("true")
                     self.assertEqual(result, True)
 
     def test_python_classes(self):
         # Using a thread without starting it should start the server
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             prolog_thread = PrologThread(server)
             self.assertTrue(prolog_thread.query("true"))
             pid = server.process_id()
 
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             prolog_thread = PrologThread(server)
             self.assertIsNone(prolog_thread.query_async("true"))
             pid = server.process_id()
 
         # Start a thread twice is ignored
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             with PrologThread(server) as prolog_thread:
                 prolog_thread.start()
                 self.assertTrue(prolog_thread.query("true"))
@@ -788,7 +795,7 @@ class TestPrologServer(ParametrizedTestCase):
         if os.name == "nt":
             exceptionCaught = False
             try:
-                with PrologServer(unix_domain_socket="C:\temp.socket") as server:
+                with PrologServer(unix_domain_socket="C:\temp.socket", prolog_path=self.prologPath) as server:
                     pass
             except ValueError:
                 exceptionCaught = True
@@ -797,7 +804,7 @@ class TestPrologServer(ParametrizedTestCase):
         # Setting port and unix_domain_socket should raise
         exceptionCaught = False
         try:
-            with PrologServer(port=4242, unix_domain_socket=""):
+            with PrologServer(port=4242, unix_domain_socket="", prolog_path=self.prologPath):
                 pass
         except ValueError:
             exceptionCaught = True
@@ -806,7 +813,7 @@ class TestPrologServer(ParametrizedTestCase):
         # Setting output_file when launch_server is False should raise
         exceptionCaught = False
         try:
-            with PrologServer(output_file_name="/test.txt", launch_server=False):
+            with PrologServer(output_file_name="/test.txt", launch_server=False, prolog_path=self.prologPath):
                 pass
         except ValueError:
             exceptionCaught = True
@@ -820,7 +827,7 @@ class TestPrologServer(ParametrizedTestCase):
             os.remove(tempFile)
         except:
             pass
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, server_traces="_", output_file_name=tempFile) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, server_traces="_", output_file_name=tempFile, prolog_path=self.prologPath) as server:
             with PrologThread(server) as prolog_thread:
                 prolog_thread.query("true")
 
@@ -837,12 +844,12 @@ class TestPrologServer(ParametrizedTestCase):
         tempDir = gettempdir()
         tempFile = os.path.join(tempDir, "swiplserveroutput.txt")
 
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, output_file_name=tempFile, server_traces="_") as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, output_file_name=tempFile, server_traces="_", prolog_path=self.prologPath) as server:
             with PrologThread(server) as prolog_thread:
                 self.assertTrue(prolog_thread.query("true"))
 
     def test_connection_failure(self):
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             with PrologThread(server) as prolog_thread:
                 # Closing the socket without sending "close.\n" should shutdown and exit the process
                 prolog_thread._socket.close()
@@ -850,7 +857,7 @@ class TestPrologServer(ParametrizedTestCase):
                 server.connection_failed = True
 
     def skip_test_protocol_overhead(self):
-        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket) as server:
+        with PrologServer(self.launchServer, self.serverPort, self.password, self.useUnixDomainSocket, prolog_path=self.prologPath) as server:
             with PrologThread(server) as prolog_thread:
                 iterations = 10000
                 bestResult = None
@@ -890,7 +897,7 @@ def load_tests(loader, standard_tests, pattern):
     # run_unix_domain_sockets_performance_tests(suite)
 
     # Tests a specific test
-    # suite.addTest(TestPrologServer('test_server_options_and_shutdown_slow'))
+    # suite.addTest(TestPrologServer('test_server_options_and_shutdown'))
     # socketPath = os.path.dirname(os.path.realpath(__file__))
     # suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, test_item_name="test_sync_query", launchServer=False,
     #                                                serverPort=4242, password="test"))
@@ -904,14 +911,33 @@ def load_tests(loader, standard_tests, pattern):
     if os.name == "nt":
         suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, launchServer=True, useUnixDomainSocket=None, serverPort=None, password=None))
     else:
-        socketPath = os.path.dirname(os.path.realpath(__file__))
+        socketPath = tempfile.mkdtemp()
         suite.addTest(ParametrizedTestCase.parametrize(TestPrologServer, essentialOnly=essentialOnly, launchServer=True, useUnixDomainSocket=PrologServer.unix_domain_socket_file(socketPath), serverPort=None, password=None))
 
     return suite
 
-
+# This code is to allow the runner of the test to set environment variables
+# That run a smaller set of tests (ESSENTIAL_TESTS_ONLY=True) or to set
+# the path and args to use when PrologServer launches the Prolog process
+# the latter is designed for running in the SWI Prolog build system since 
+# it needs certain arguments passed along
 essentialOnly = os.getenv('ESSENTIAL_TESTS_ONLY') == 'True'
-
+prologPath = os.getenv('PROLOG_PATH')
+prologArgsString = os.getenv('PROLOG_ARGS')
+if prologArgsString is not None:
+    prologArgs = prologArgsString.split("~|~")
+    finalArgs = []
+    skip = False
+    for index in range(0, len(prologArgs)):
+        if skip:
+            continue
+        if prologArgs[index] in ["-s", "-g"]:
+            skip = True
+        else:
+            finalArgs.append(prologArgs[index])
+    prologArgs = finalArgs
+else:
+    prologArgs = None
 
 if __name__ == '__main__':
     print("**** Note that some builds of Prolog will print out messages about 'Execution Aborted' or 'did not clear exception...' when running tests.  Ignore them.")

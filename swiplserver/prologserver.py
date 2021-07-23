@@ -22,9 +22,8 @@ Allows using SWI Prolog as an embedded part of an application, "like a library".
 Installation:
 
     1. Install SWI Prolog (www.swi-prolog.org) and ensure that "swipl" is on the system path.
-    2. Copy the "swiplserver" library (the whole directory) to be a subdirectory of your Python project.
+    2. Either "pip install swiplserver" or copy the "swiplserver" library (the whole directory) from the "libs" directory of your SWI Prolog installation to be a subdirectory of your Python project.
     3. Check if your SWI Prolog version includes the Language Server by launching it and typing `?- language_server([]).` If it can't find it, see below for how to install it.
-    3. From within your python project directory run the tests using "python ./swiplserver/test_prologserver.py" to ensure everything is working correctly.
 
     If your SWI Prolog doesn't yet include the language server:
 
@@ -210,7 +209,7 @@ class PrologResultNotAvailableError(PrologError):
         super().__init__(exception_json)
 
 
-class PrologServer:
+class   PrologServer:
     def __init__(self,
                  launch_server: bool = True,
                  port: int = None,
@@ -219,7 +218,9 @@ class PrologServer:
                  query_timeout_seconds: float = None,
                  pending_connection_count: int = None,
                  output_file_name: str = None,
-                 server_traces: str = None):
+                 server_traces: str = None,
+                 prolog_path: str = None,
+                 prolog_path_args: list = None):
         """
         Initialize a PrologServer class that manages a SWI Prolog process associated with your application process. `PrologServer.start()` actually launches the process if launch_server is True.
 
@@ -271,12 +272,16 @@ class PrologServer:
 
             output_file_name: Provide the file name for a file to redirect all Prolog output (STDOUT and STDERR) to. Used for debugging or gathering a log of Prolog output. None outputs all Prolog output to the Python logging infrastructure using the 'swiplserver' log.  If using multiple servers in one SWI Prolog instance, only set this on the first one.  Each time it is set the output will be deleted and redirected.
 
-            server_traces: Only used in unusual debugging circumstances. Since these are Prolog traces, where they go is determined by output_file_name.
+            server_traces: (Only used in unusual debugging circumstances) Since these are Prolog traces, where they go is determined by output_file_name.
 
                 - None (the default) does not turn on language_server tracing
                 - "_" turns on all tracing output from Prolog `language_server/1` server (i.e. runs `debug(language_server(_)).` in Prolog).
                 - "protocol" turns on only protocol level messages (which results in much less data in the trace for large queries)
                 - "query" turns on only messages about the query.
+
+            prolog_path: (Only used for unusual testing situations) Set the path to where the swipl executable can be found
+
+            prolog_path_args: (Only used for unusual testing situations) Set extra command line arguments to be sent to swipl when it is launched.
 
         Raises:
             ValueError if the arguments don't make sense.  For example: choosing Unix Domain Sockets on Windows or setting output_file with launch_server = False
@@ -292,6 +297,8 @@ class PrologServer:
         self._unix_domain_socket = unix_domain_socket
         self._server_traces = server_traces
         self._launch_server = launch_server
+        self._prolog_path = prolog_path
+        self._prolog_path_args = prolog_path_args
 
         # Becomes true if a PrologThread class encounters a situation
         # where the server is clearly shutdown and thus more communication
@@ -356,8 +363,8 @@ class PrologServer:
              PrologLaunchError: The SWI Prolog process was unable to be launched. Often indicates that `swipl` is not in the system path.
         """
         if self._launch_server:
-            prologPath = join(os.path.dirname(os.path.realpath(__file__)), "language_server.pl")
-            launchArgs = ["swipl",
+            swiplPath = os.path.join(self._prolog_path, "swipl") if self._prolog_path is not None else "swipl"
+            launchArgs = [swiplPath] + (self._prolog_path_args if self._prolog_path_args is not None else []) + [
                           "--quiet",
                           "-g", "language_server",
                           "-t", "halt",
@@ -381,7 +388,7 @@ class PrologServer:
                     launchArgs += ["--unix_domain_socket={}".format(self._unix_domain_socket)]
                 else:
                     launchArgs += ["--create_unix_domain_socket=true"]
-
+            
             _log.debug("PrologServer launching swipl: %s", launchArgs)
             try:
                 self._process = subprocess.Popen(launchArgs, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -398,6 +405,7 @@ class PrologServer:
                     raise PrologLaunchError("no port found in stdout")
                 else:
                     serverPortString = portString.rstrip('\n')
+                    print("serverString: {}".format(serverPortString))
                     self._port = int(serverPortString)
                     _log.debug("Prolog server port: %s", self._port)
             else:

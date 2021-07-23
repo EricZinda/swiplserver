@@ -32,9 +32,8 @@
 <h2 id="installation">Installation</h2>
 <ol>
 <li>Install SWI Prolog (www.swi-prolog.org) and ensure that "swipl" is on the system path.</li>
-<li>Copy the "swiplserver" library (the whole directory) to be a subdirectory of your Python project.</li>
+<li>Either "pip install swiplserver" or copy the "swiplserver" library (the whole directory) from the "libs" directory of your SWI Prolog installation to be a subdirectory of your Python project.</li>
 <li>Check if your SWI Prolog version includes the Language Server by launching it and typing <code>?- language_server([]).</code> If it can't find it, see below for how to install it.</li>
-<li>From within your python project directory run the tests using "python ./swiplserver/test_prologserver.py" to ensure everything is working correctly.</li>
 </ol>
 <p>If your SWI Prolog doesn't yet include the language server:</p>
 <ol>
@@ -364,7 +363,7 @@ json_term must be in the Prolog JSON format. See <code><a title="swiplserver.pro
 </dd>
 <dt id="swiplserver.prologserver.PrologServer"><code class="flex name class">
 <span>class <span class="ident">PrologServer</span></span>
-<span>(</span><span>launch_server: bool = True, port: int = None, password: str = None, unix_domain_socket: str = None, query_timeout_seconds: float = None, pending_connection_count: int = None, output_file_name: str = None, server_traces: str = None)</span>
+<span>(</span><span>launch_server: bool = True, port: int = None, password: str = None, unix_domain_socket: str = None, query_timeout_seconds: float = None, pending_connection_count: int = None, output_file_name: str = None, server_traces: str = None, prolog_path: str = None, prolog_path_args: list = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Initialize a PrologServer class that manages a SWI Prolog process associated with your application process. <code><a title="swiplserver.prologserver.PrologServer.start" href="#swiplserver.prologserver.PrologServer.start">PrologServer.start()</a></code> actually launches the process if launch_server is True.</p>
@@ -431,7 +430,7 @@ If using multiple servers in one SWI Prolog instance, only set this on the first
 Each time it is set the output will be deleted and redirected.</dd>
 <dt><strong><code>server_traces</code></strong></dt>
 <dd>
-<p>Only used in unusual debugging circumstances. Since these are Prolog traces, where they go is determined by output_file_name.</p>
+<p>(Only used in unusual debugging circumstances) Since these are Prolog traces, where they go is determined by output_file_name.</p>
 <ul>
 <li>None (the default) does not turn on language_server tracing</li>
 <li>"_" turns on all tracing output from Prolog <code>language_server/1</code> server (i.e. runs <code>debug(language_server(_)).</code> in Prolog).</li>
@@ -439,6 +438,10 @@ Each time it is set the output will be deleted and redirected.</dd>
 <li>"query" turns on only messages about the query.</li>
 </ul>
 </dd>
+<dt><strong><code>prolog_path</code></strong></dt>
+<dd>(Only used for unusual testing situations) Set the path to where the swipl executable can be found</dd>
+<dt><strong><code>prolog_path_args</code></strong></dt>
+<dd>(Only used for unusual testing situations) Set extra command line arguments to be sent to swipl when it is launched.</dd>
 </dl>
 <h2 id="raises">Raises</h2>
 <p>ValueError if the arguments don't make sense.
