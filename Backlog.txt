@@ -1,4 +1,4 @@
-- Get feedback from SWI Prolog community
+- Re-review test code for cleanup opportunities
 - Your example code is:
     while True:
         result = prolog_thread.query_async_result()
@@ -6,11 +6,14 @@
                 break
             else:
                 print(result)
-                
+
     It’s more “Pythonic” to package this as an iterator:
 
     for result in prolog_thread.query_iter():
         print(result)
-    Also, you might want to consider an interface that is truly asynchronous, so that it works with await. (I’m not a big fan of await, but it seems that a lot of people are.)
+    Also, you might want to consider an interface that is truly asynchronous, so that it works with await.
 
+- How to build:
+python3 -m build
+python3 -m twine upload --repository testpypi dist/*
 

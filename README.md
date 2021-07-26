@@ -17,8 +17,10 @@ with PrologServer() as server:
  {'X': {'functor': 'color', 'args': ['red']}}]
 ~~~
 
+### Installation
 To install and learn how to use the swiplserver Python library, see [the docs](https://blog.inductorsoftware.com/swiplserver/swiplserver/prologserver.html).
 
+### Using the Language Server with Other Languages
 While `swiplserver` automatically manages dealing with the Language Server in SWI Prolog, documentation for it is provided since it is intended to be used for integrating other programming languages with SWI Prolog as well. The code is available in this repository at: `swiplserver/language_server.pl`  Read more in:
 - [Prolog Language Server Overview](https://blog.inductorsoftware.com/swiplserver/language_server/language_server_overview_doc.html)
 - [language_server Predicates Reference](https://blog.inductorsoftware.com/swiplserver/language_server/language_server.html)
