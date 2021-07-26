@@ -31,6 +31,7 @@ Should work on:
 
 Has been tested with:
 - Ubuntu 20.04.2 + SWI Prolog 8.3.22 + Python 3.7.8
+- Windows 10 Pro 64 bit + SWI Prolog 8.3.27 + Python 3.7.0
 - Windows 8.1 Pro 64 bit + SWI Prolog 8.2.4 + Python 3.8.1
 - MacOS Catalina/Big Sur + SWI Prolog 8.3.24 + Python 3.7.4
 
