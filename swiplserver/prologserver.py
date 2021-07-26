@@ -4,11 +4,6 @@
 #    WWW:           http://www.inductorsoftware.com
 #    Copyright (c)  2021, Eric Zinda
 
-# HTML Docs produced with https://pdoc3.github.io
-# pip install pdoc3
-# pdoc --html --force --output-dir docs --config show_source_code=False swiplserver.prologserver
-# pdoc --html --config show_source_code=False swiplserver.prologserver --force --output-dir docs --http localhost:5000
-
 """
 Allows using SWI Prolog as an embedded part of an application, "like a library".
 

@@ -13,7 +13,4 @@
         print(result)
     Also, you might want to consider an interface that is truly asynchronous, so that it works with await.
 
-- How to build:
-python3 -m build
-python3 -m twine upload --repository testpypi dist/*
 
