@@ -22,7 +22,7 @@ Allows using SWI Prolog as an embedded part of an application, "like a library".
 Installation:
 
     1. Install SWI Prolog (www.swi-prolog.org) and ensure that "swipl" is on the system path.
-    2. Either "pip install swiplserver" or copy the "swiplserver" library (the whole directory) from the "libs" directory of your SWI Prolog installation to be a subdirectory of your Python project.
+    2. Either "pip install swiplserver" or copy the "swiplserver" library (the whole directory) from the "libs" directory of your SWI Prolog installation or the [GitHub repository](https://github.com/EricZinda/swiplserver) to be a subdirectory of your Python project.
     3. Check if your SWI Prolog version includes the Language Server by launching it and typing `?- language_server([]).` If it can't find it, see below for how to install it.
 
     If your SWI Prolog doesn't yet include the language server:
@@ -405,7 +405,6 @@ class   PrologServer:
                     raise PrologLaunchError("no port found in stdout")
                 else:
                     serverPortString = portString.rstrip('\n')
-                    print("serverString: {}".format(serverPortString))
                     self._port = int(serverPortString)
                     _log.debug("Prolog server port: %s", self._port)
             else:
