@@ -817,20 +817,17 @@ class PrologThread:
             if amount_expected is None:
                 # Start / continue reading the string length
                 # Ignore any leading "." characters because those are heartbeats
-                for index in range(0, len(headerData)):
-                    item = headerData[index]
+                for index, item in enumerate(headerData):
                     # String length ends with '.\n' characters
-                    if item == 46:
+                    if chr(item) == ".":
                         # ignore "."
                         if len(sizeBytes) == 0:
                             # Count heartbeats for testing only
                             self._heartbeat_count += 1
                         continue
-                    if item == 10:
+                    if chr(item) == "\n":
                         # convert all the characters we've received so far to a number
-                        stringLength = ""
-                        for code in sizeBytes:
-                            stringLength += chr(code)
+                        stringLength = "".join(chr(code) for code in sizeBytes)
                         amount_expected = int(stringLength)
                         # And consume the rest of the stream
                         data = bytearray(headerData[index + 1:])
