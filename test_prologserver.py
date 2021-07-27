@@ -149,7 +149,7 @@ class TestPrologServer(ParametrizedTestCase):
     def round_trip_prolog(self, client, testTerm, expectedText = None):
         if expectedText is None:
             expectedText = testTerm
-        result = client.query("X = {}".format(testTerm))
+        result = client.query(f"X = {testTerm}")
         term = result[0]["X"]
         convertedTerm = json_to_prolog(term)
         assert convertedTerm == expectedText
@@ -158,14 +158,14 @@ class TestPrologServer(ParametrizedTestCase):
         # Query that times out")
         caughtException = False
         try:
-            result = prologThread.query("sleep({})".format(sleepForSeconds), query_timeout_seconds=queryTimeout)
+            result = prologThread.query(f"sleep({sleepForSeconds})", query_timeout_seconds=queryTimeout)
         except PrologQueryTimeoutError as error:
             caughtException = True
         assert caughtException
 
     def async_query_timeout(self, prologThread, sleepForSeconds, queryTimeout):
         # async query with all results that times out on second of three results")
-        prologThread.query_async("(member(X, [Y=a, sleep({}), Y=b]), X)".format(sleepForSeconds),
+        prologThread.query_async(f"(member(X, [Y=a, sleep({sleepForSeconds}), Y=b]), X)",
                                  query_timeout_seconds=queryTimeout)
         try:
             result = prologThread.query_async_result()
@@ -174,7 +174,7 @@ class TestPrologServer(ParametrizedTestCase):
         assert caughtException
 
         # Calling cancel after the goal times out after one successful iteration")
-        prologThread.query_async("(member(X, [Y=a, sleep({}), Y=b]), X)".format(sleepForSeconds),
+        prologThread.query_async(f"(member(X, [Y=a, sleep({sleepForSeconds}), Y=b]), X)",
                                  query_timeout_seconds=queryTimeout, find_all=False)
         sleep(sleepForSeconds + 1)
         prologThread.cancel_query_async()
@@ -515,7 +515,7 @@ class TestPrologServer(ParametrizedTestCase):
                         for index in range(0, 5):
                             prologThread = server.create_thread()
                             prologThread.start()
-                            prologThread.query_async("assert({}), with_mutex(test, assert({}))".format("started(" + str(index) + ")", "ended(" + str(index) + ")"))
+                            prologThread.query_async(f"assert({'started(' + str(index) + ')'}), with_mutex(test, assert({'ended(' + str(index) + ')'}))")
                             prologThreads.append(prologThread)
 
                         # Give time to get to mutex
@@ -613,7 +613,7 @@ class TestPrologServer(ParametrizedTestCase):
                     with newServer.create_thread() as prologThread:
                         result = prologThread.query("true")
                         self.assertEqual(result, True)
-                result = monitorThread.query("stop_language_server({})".format(serverThreadID))
+                result = monitorThread.query(f"stop_language_server({serverThreadID})")
                 self.assertEqual(result, True)
                 afterShutdownThreads = self.thread_list(monitorThread)
                 self.assertEqual(afterShutdownThreads, initialThreads)
@@ -622,13 +622,13 @@ class TestPrologServer(ParametrizedTestCase):
                     # unixDomainSocket() should be used if supplied (non-windows).
                     socketPath = mkdtemp()
                     unixDomainSocket = PrologServer.unix_domain_socket_file(socketPath)
-                    result = monitorThread.query("language_server([unix_domain_socket('{}'), password(testpassword), server_thread(ServerThreadID)])".format(unixDomainSocket))
+                    result = monitorThread.query(f"language_server([unix_domain_socket('{unixDomainSocket}'), password(testpassword), server_thread(ServerThreadID)])")
                     serverThreadID = result[0]["ServerThreadID"]
                     with PrologServer(launch_server=False, unix_domain_socket=unixDomainSocket, password="testpassword", prolog_path=self.prologPath) as newServer:
                         with newServer.create_thread() as prologThread:
                             result = prologThread.query("true")
                             self.assertEqual(result, True)
-                    result = monitorThread.query("stop_language_server({})".format(serverThreadID))
+                    result = monitorThread.query(f"stop_language_server({serverThreadID})")
                     self.assertEqual(result, True)
                     afterShutdownThreads = self.thread_list(monitorThread)
                     self.assertEqual(afterShutdownThreads, initialThreads)
@@ -642,7 +642,7 @@ class TestPrologServer(ParametrizedTestCase):
                         with newServer.create_thread() as prologThread:
                             result = prologThread.query("true")
                             self.assertEqual(result, True)
-                    result = monitorThread.query("stop_language_server({})".format(serverThreadID))
+                    result = monitorThread.query(f"stop_language_server({serverThreadID})")
                     self.assertEqual(result, True)
                     afterShutdownThreads = self.thread_list(monitorThread)
                     self.assertEqual(afterShutdownThreads, initialThreads)
@@ -682,7 +682,7 @@ class TestPrologServer(ParametrizedTestCase):
 
                     # Now shut it down by cancelling the query and running stop
                     blockedThread.cancel_query_async()
-                    result = monitorThread.query("stop_language_server({})".format(blockedThread.communication_thread_id))
+                    result = monitorThread.query(f"stop_language_server({blockedThread.communication_thread_id})")
                     self.assertEqual(result, True)
 
                 # And make sure all the threads went away
@@ -730,7 +730,7 @@ class TestPrologServer(ParametrizedTestCase):
                 assert len(testThreads) - len(initialThreads) == 1
 
                 # stop_language_server should remove all (and only) created threads and the Unix Domain File (which is tested on self.tearDown())
-                result = monitorThread.query("stop_language_server({})".format(optionsDict["ServerThreadID"]))
+                result = monitorThread.query(f"stop_language_server({optionsDict['ServerThreadID']})")
                 sleep(2)
                 afterShutdownThreads = self.thread_list(monitorThread)
                 self.assertEqual(afterShutdownThreads, initialThreads)
@@ -745,7 +745,7 @@ class TestPrologServer(ParametrizedTestCase):
                     with newServer.create_thread() as prologThread:
                         self.sync_query_timeout(prologThread, sleepForSeconds=2, queryTimeout=None)
                         self.async_query_timeout(prologThread, sleepForSeconds=2, queryTimeout=None)
-                result = monitorThread.query("stop_language_server({})".format(serverThreadID))
+                result = monitorThread.query(f"stop_language_server({serverThreadID})")
                 self.assertEqual(result, True)
                 afterShutdownThreads = self.thread_list(monitorThread)
                 self.assertEqual(afterShutdownThreads, initialThreads)
@@ -760,7 +760,7 @@ class TestPrologServer(ParametrizedTestCase):
                         prologThread.query_async("sleep(20)")
                 # Wait for query to start running
                 sleep(2)
-                result = monitorThread.query("stop_language_server({})".format(serverThreadID))
+                result = monitorThread.query(f"stop_language_server({serverThreadID})")
                 assert result is True
                 afterShutdownThreads = self.thread_list(monitorThread)
                 self.assertEqual(afterShutdownThreads, initialThreads)
@@ -868,12 +868,12 @@ class TestPrologServer(ParametrizedTestCase):
                     for count in range(0, iterations):
                         prolog_thread.query("true")
                     thisResult = perf_counter() - startEvalTime
-                    print("Measured value {}".format(thisResult))
+                    print(f"Measured value {thisResult}")
                     if bestResult is None or thisResult < bestResult:
                         bestResult = thisResult
 
                 gc.enable()
-                print("Best Time to run {} iterations of the Prolog query `true`: {}".format(iterations, bestResult))
+                print(f"Best Time to run {iterations} iterations of the Prolog query `true`: {bestResult}")
 
 
 def run_tcpip_performance_tests(suite):

@@ -367,20 +367,20 @@ class   PrologServer:
                           "--write_connection_values=true"]
 
             if self.pending_connections is not None:
-                launchArgs += ["--pending_connections={}".format(str(self.pending_connections))]
+                launchArgs += [f"--pending_connections={str(self.pending_connections)}"]
             if self._query_timeout is not None:
-                launchArgs += ["--query_timeout={}".format(str(self._query_timeout))]
+                launchArgs += [f"--query_timeout={str(self._query_timeout)}"]
             if self._password is not None:
-                launchArgs += ["--password={}".format(str(self._password))]
+                launchArgs += [f"--password={str(self._password)}"]
             if self._output_file is not None:
                 finalPath = create_posix_path(self._output_file)
-                launchArgs += ["--write_output_to_file={}".format(finalPath)]
+                launchArgs += [f"--write_output_to_file={finalPath}"]
                 _log.debug("Writing all Prolog output to file: %s", finalPath)
             if self._port is not None:
-                launchArgs += ["--port={}".format(str(self._port))]
+                launchArgs += [f"--port={str(self._port)}"]
             if self._unix_domain_socket is not None:
                 if len(self._unix_domain_socket) > 0:
-                    launchArgs += ["--unix_domain_socket={}".format(self._unix_domain_socket)]
+                    launchArgs += [f"--unix_domain_socket={self._unix_domain_socket}"]
                 else:
                     launchArgs += ["--create_unix_domain_socket=true"]
             
@@ -419,7 +419,7 @@ class   PrologServer:
 
             if self._server_traces is not None:
                 with self.create_thread() as prologThread:
-                    prologThread.query("debug(language_server({}))".format(self._server_traces))
+                    prologThread.query(f"debug(language_server({self._server_traces}))")
 
     def create_thread(self):
         """
@@ -559,15 +559,14 @@ class PrologThread:
             raise connect_exception
 
         # Send the password as the first message
-        self._send("{}".format(self._prolog_server._password))
+        self._send(f"{self._prolog_server._password}")
         result = self._receive()
         jsonResult = json.loads(result)
         if prolog_name(jsonResult) != "true":
-            raise PrologLaunchError("Failed to accept password: {}".format(json_to_prolog(jsonResult)))
+            raise PrologLaunchError(f"Failed to accept password: {json_to_prolog(jsonResult)}")
         else:
             threadTerm = prolog_args(jsonResult)[0][0][0]
-            self.communication_thread_id = prolog_args(threadTerm)[0]
-            self.goal_thread_id = prolog_args(threadTerm)[1]
+            self.communication_thread_id, self.goal_thread_id = prolog_args(threadTerm)
 
     def stop(self):
         """
@@ -619,7 +618,7 @@ class PrologThread:
         value = value.strip()
         value = value.rstrip("\n.")
         timeoutString = "_" if query_timeout_seconds is None else str(query_timeout_seconds)
-        self._send("run(({}), {}).\n".format(value, timeoutString))
+        self._send(f"run(({value}), {timeoutString}).\n")
         return self._return_prolog_response()
 
     def query_async(self, value: str, find_all: bool = True, query_timeout_seconds: float = None):
@@ -651,7 +650,7 @@ class PrologThread:
         value = value.rstrip("\n.")
         timeoutString = "_" if query_timeout_seconds is None else str(query_timeout_seconds)
         findallResultsString = "true" if find_all else "false"
-        self._send("run_async(({}), {}, {}).\n".format(value, timeoutString, findallResultsString))
+        self._send(f"run_async(({value}), {timeoutString}, {findallResultsString}).\n")
         self._return_prolog_response()
 
     def cancel_query_async(self):
@@ -723,7 +722,7 @@ class PrologThread:
                 - A `dict` if there were free variables. Each key will be the name of a variable, each value will be the JSON representing the term it was unified with.
         """
         timeoutString = "-1" if wait_timeout_seconds is None else str(wait_timeout_seconds)
-        self._send("async_result({}).\n".format(timeoutString))
+        self._send(f"async_result({timeoutString}).\n")
         return self._return_prolog_response()
 
     def halt_server(self):
@@ -798,7 +797,7 @@ class PrologThread:
         value += ".\n"
         _log.debug("PrologServer send: %s", value)
         utf8Value = value.encode("utf-8")
-        msgHeader = "{}.\n".format(str(len(utf8Value))).encode("utf-8")
+        msgHeader = f"{str(len(utf8Value))}.\n".encode("utf-8")
         self._socket.sendall(msgHeader)
         self._socket.sendall(utf8Value)
 
@@ -929,7 +928,7 @@ def quote_prolog_identifier(identifier: str):
                         )
 
         if mustQuote:
-            return "'{}'".format(identifier)
+            return f"'{identifier}'"
         else:
             return identifier
 
@@ -940,10 +939,10 @@ def json_to_prolog(json_term):
     """
     if is_prolog_functor(json_term):
         argsString = [json_to_prolog(item) for item in prolog_args(json_term)]
-        return "{}({})".format(quote_prolog_identifier(prolog_name(json_term)), ", ".join(argsString))
+        return f"{quote_prolog_identifier(prolog_name(json_term))}({', '.join(argsString)})"
     elif is_prolog_list(json_term):
         listString = [json_to_prolog(item) for item in json_term]
-        return "[{}]".format(", ".join(listString))
+        return f"[{', '.join(listString)}]"
     else:
         # must be an atom, number or variable
         return str(quote_prolog_identifier(json_term))
@@ -957,7 +956,7 @@ class _NonBlockingStreamReader:
             while True:
                 line = stream.readline()
                 if line:
-                    _log.critical("Prolog: {}".format(line.decode().rstrip()))
+                    _log.critical(f"Prolog: {line.decode().rstrip()}")
 
         self._stream = stream
         self._thread = Thread(target = _print_output, args = (self._stream, ))
@@ -972,4 +971,3 @@ if __name__ == '__main__':
     # This is not guaranteed to create a socket that is portable, but since
     # we are testing we are OK with it.
     socketPath = os.path.dirname(os.path.realpath(__file__))
-
