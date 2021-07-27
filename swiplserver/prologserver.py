@@ -128,8 +128,12 @@ class PrologError(Exception):
     """
     Base class used for all exceptions raised by `swiplserver.prologserver` except for PrologLaunchError. Used directly when an exception is thrown by Prolog code itself, otherwise the subclass exceptions are used.
     """
+
     def __init__(self, exception_json):
-        assert prolog_name(exception_json) == "exception" and len(prolog_args(exception_json)) == 1
+        assert (
+            prolog_name(exception_json) == "exception"
+            and len(prolog_args(exception_json)) == 1
+        )
         self._exception_json = prolog_args(exception_json)[0]
         super().__init__(self.prolog())
 
@@ -161,6 +165,7 @@ class PrologLaunchError(Exception):
     """
     Raised when the SWI Prolog process was unable to be launched for any reason.
     """
+
     pass
 
 
@@ -168,6 +173,7 @@ class PrologQueryTimeoutError(PrologError):
     """
     Raised when a Prolog query times out when calling `PrologThread.query()` or `PrologThread.query_async()` with a timeout.
     """
+
     pass
 
 
@@ -175,6 +181,7 @@ class PrologConnectionFailedError(PrologError):
     """
     Raised when the connection used by a `PrologThread` fails. Indicates that the server will no longer respond.
     """
+
     pass
 
 
@@ -182,6 +189,7 @@ class PrologNoQueryError(PrologError):
     """
     Raised by `PrologThread.cancel_query_async()` and `PrologThread.query_async_result()` if there is no query running and no results to retrieve.
     """
+
     pass
 
 
@@ -189,6 +197,7 @@ class PrologQueryCancelledError(PrologError):
     """
     Raised by `PrologThread.query_async_result()` when the query has been cancelled.
     """
+
     pass
 
 
@@ -196,21 +205,24 @@ class PrologResultNotAvailableError(PrologError):
     """
     Raised by `PrologThread.query_async_result()` when the next result to a query is not yet available.
     """
+
     pass
 
 
-class   PrologServer:
-    def __init__(self,
-                 launch_server: bool = True,
-                 port: int = None,
-                 password: str = None,
-                 unix_domain_socket: str = None,
-                 query_timeout_seconds: float = None,
-                 pending_connection_count: int = None,
-                 output_file_name: str = None,
-                 server_traces: str = None,
-                 prolog_path: str = None,
-                 prolog_path_args: list = None):
+class PrologServer:
+    def __init__(
+        self,
+        launch_server: bool = True,
+        port: int = None,
+        password: str = None,
+        unix_domain_socket: str = None,
+        query_timeout_seconds: float = None,
+        pending_connection_count: int = None,
+        output_file_name: str = None,
+        server_traces: str = None,
+        prolog_path: str = None,
+        prolog_path_args: list = None,
+    ):
         """
         Initialize a PrologServer class that manages a SWI Prolog process associated with your application process. `PrologServer.start()` actually launches the process if launch_server is True.
 
@@ -340,7 +352,7 @@ class   PrologServer:
             if self._unix_domain_socket:
                 with suppress(Exception):
                     os.remove(self._unix_domain_socket)
-                    
+
             self._process = None
 
     def start(self):
@@ -353,13 +365,24 @@ class   PrologServer:
              PrologLaunchError: The SWI Prolog process was unable to be launched. Often indicates that `swipl` is not in the system path.
         """
         if self._launch_server:
-            swiplPath = os.path.join(self._prolog_path, "swipl") if self._prolog_path is not None else "swipl"
-            launchArgs = [swiplPath] + (self._prolog_path_args if self._prolog_path_args is not None else []) + [
-                          "--quiet",
-                          "-g", "language_server",
-                          "-t", "halt",
-                          "--",
-                          "--write_connection_values=true"]
+            swiplPath = (
+                os.path.join(self._prolog_path, "swipl")
+                if self._prolog_path is not None
+                else "swipl"
+            )
+            launchArgs = (
+                [swiplPath]
+                + (self._prolog_path_args if self._prolog_path_args is not None else [])
+                + [
+                    "--quiet",
+                    "-g",
+                    "language_server",
+                    "-t",
+                    "halt",
+                    "--",
+                    "--write_connection_values=true",
+                ]
+            )
 
             if self.pending_connections is not None:
                 launchArgs += [f"--pending_connections={str(self.pending_connections)}"]
@@ -378,12 +401,16 @@ class   PrologServer:
                     launchArgs += [f"--unix_domain_socket={self._unix_domain_socket}"]
                 else:
                     launchArgs += ["--create_unix_domain_socket=true"]
-            
+
             _log.debug("PrologServer launching swipl: %s", launchArgs)
             try:
-                self._process = subprocess.Popen(launchArgs, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                self._process = subprocess.Popen(
+                    launchArgs, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                )
             except FileNotFoundError:
-                raise PrologLaunchError("The SWI Prolog executable 'swipl' could not be found on the system path, please add it.")
+                raise PrologLaunchError(
+                    "The SWI Prolog executable 'swipl' could not be found on the system path, please add it."
+                )
 
             # Add STDERR reader immediately so we can see errors printed out
             self._stderr_reader = _NonBlockingStreamReader(self._process.stderr)
@@ -391,23 +418,23 @@ class   PrologServer:
             # Now read the data that Prolog sends about how to connect
             if self._unix_domain_socket is None:
                 portString = self._process.stdout.readline().decode()
-                if portString == '':
+                if portString == "":
                     raise PrologLaunchError("no port found in stdout")
                 else:
-                    serverPortString = portString.rstrip('\n')
+                    serverPortString = portString.rstrip("\n")
                     self._port = int(serverPortString)
                     _log.debug("Prolog server port: %s", self._port)
             else:
                 domain_socket = self._process.stdout.readline().decode()
-                if domain_socket == '':
+                if domain_socket == "":
                     raise PrologLaunchError("no Unix Domain Socket found in stdout")
-                self._unix_domain_socket = domain_socket.rstrip('\n')
+                self._unix_domain_socket = domain_socket.rstrip("\n")
 
             passwordString = self._process.stdout.readline().decode()
-            if passwordString == '':
+            if passwordString == "":
                 raise PrologLaunchError("no password found in stdout")
             else:
-                self._password = passwordString.rstrip('\n')
+                self._password = passwordString.rstrip("\n")
 
             # Now that we are done reading, we can add the STDOUT Reader
             self._stdout_reader = _NonBlockingStreamReader(self._process.stdout)
@@ -531,7 +558,7 @@ class PrologThread:
             prologAddress = self._prolog_server._unix_domain_socket
             self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         else:
-            prologAddress = ('127.0.0.1', self._prolog_server._port)
+            prologAddress = ("127.0.0.1", self._prolog_server._port)
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         _log.debug("PrologServer connecting to Prolog at: %s", prologAddress)
@@ -558,7 +585,9 @@ class PrologThread:
         result = self._receive()
         jsonResult = json.loads(result)
         if prolog_name(jsonResult) != "true":
-            raise PrologLaunchError(f"Failed to accept password: {json_to_prolog(jsonResult)}")
+            raise PrologLaunchError(
+                f"Failed to accept password: {json_to_prolog(jsonResult)}"
+            )
         else:
             threadTerm = prolog_args(jsonResult)[0][0][0]
             self.communication_thread_id, self.goal_thread_id = prolog_args(threadTerm)
@@ -612,12 +641,16 @@ class PrologThread:
             self.start()
         value = value.strip()
         value = value.rstrip("\n.")
-        timeoutString = "_" if query_timeout_seconds is None else str(query_timeout_seconds)
+        timeoutString = (
+            "_" if query_timeout_seconds is None else str(query_timeout_seconds)
+        )
         self._send(f"run(({value}), {timeoutString}).\n")
         return self._return_prolog_response()
 
-    def query_async(self, value: str, find_all: bool = True, query_timeout_seconds: float = None):
-        """ Start a Prolog query and return immediately unless a previous query is still running. In that case, wait until the previous query finishes before returning.
+    def query_async(
+        self, value: str, find_all: bool = True, query_timeout_seconds: float = None
+    ):
+        """Start a Prolog query and return immediately unless a previous query is still running. In that case, wait until the previous query finishes before returning.
 
         Calls `PrologServer.start()` and `PrologThread.start()` if either is not already started.
 
@@ -643,7 +676,9 @@ class PrologThread:
 
         value = value.strip()
         value = value.rstrip("\n.")
-        timeoutString = "_" if query_timeout_seconds is None else str(query_timeout_seconds)
+        timeoutString = (
+            "_" if query_timeout_seconds is None else str(query_timeout_seconds)
+        )
         findallResultsString = "true" if find_all else "false"
         self._send(f"run_async(({value}), {timeoutString}, {findallResultsString}).\n")
         self._return_prolog_response()
@@ -679,7 +714,7 @@ class PrologThread:
         self._return_prolog_response()
 
     def query_async_result(self, wait_timeout_seconds: float = None):
-        """ Get results from a query that was run using `PrologThread.query_async()`.
+        """Get results from a query that was run using `PrologThread.query_async()`.
 
         Used to get results for all cases: if the query terminates normally, is cancelled by `PrologThread.cancel_query_async()`, or times out. Each call to `query_async_result()` returns one result and either `None` or raises an exception when there are no more results.  Any raised exception except for `PrologResultNotAvailableError` indicates there are no more results. If `PrologThread.query_async()` was run with `find_all == False`, multiple `query_async_result()` calls may be required before receiving the final None or raised exception.
 
@@ -716,7 +751,9 @@ class PrologThread:
                 - `True` if there were no free variables
                 - A `dict` if there were free variables. Each key will be the name of a variable, each value will be the JSON representing the term it was unified with.
         """
-        timeoutString = "-1" if wait_timeout_seconds is None else str(wait_timeout_seconds)
+        timeoutString = (
+            "-1" if wait_timeout_seconds is None else str(wait_timeout_seconds)
+        )
         self._send(f"async_result({timeoutString}).\n")
         return self._return_prolog_response()
 
@@ -757,12 +794,13 @@ class PrologThread:
             elif not isinstance(jsonResult["args"][0], str):
                 raise PrologError(jsonResult)
 
-            raise {"connection_failed": PrologConnectionFailedError(jsonResult),
-                   "time_limit_exceeded": PrologQueryTimeoutError(jsonResult),
-                   "no_query": PrologNoQueryError(jsonResult),
-                   "cancel_goal": PrologQueryCancelledError(jsonResult),
-                   "result_not_available": PrologResultNotAvailableError(jsonResult),
-                   }.get(jsonResult["args"][0], PrologError(jsonResult))
+            raise {
+                "connection_failed": PrologConnectionFailedError(jsonResult),
+                "time_limit_exceeded": PrologQueryTimeoutError(jsonResult),
+                "no_query": PrologNoQueryError(jsonResult),
+                "cancel_goal": PrologQueryCancelledError(jsonResult),
+                "result_not_available": PrologResultNotAvailableError(jsonResult),
+            }.get(jsonResult["args"][0], PrologError(jsonResult))
         else:
             if prolog_name(jsonResult) == "false":
                 return False
@@ -775,7 +813,9 @@ class PrologThread:
                         answerDict = {}
                         for answerAssignment in answer:
                             # These will all be =(Variable, Term) terms
-                            answerDict[prolog_args(answerAssignment)[0]] = prolog_args(answerAssignment)[1]
+                            answerDict[prolog_args(answerAssignment)[0]] = prolog_args(
+                                answerAssignment
+                            )[1]
                         answerList.append(answerDict)
                 if answerList == [True]:
                     return True
@@ -825,7 +865,7 @@ class PrologThread:
                         stringLength = "".join(chr(code) for code in sizeBytes)
                         amount_expected = int(stringLength)
                         # And consume the rest of the stream
-                        data = bytearray(headerData[index + 1:])
+                        data = bytearray(headerData[index + 1 :])
                         break
                     else:
                         sizeBytes.append(item)
@@ -857,11 +897,14 @@ def create_posix_path(os_path):
         finalPath = convertedPath
     return finalPath
 
+
 def is_prolog_functor(json_term):
     """
     True if json_term is Prolog JSON representing a Prolog functor (i.e. a term with zero or more arguments).  See `swiplserver.prologserver` for documentation on the Prolog JSON format.
     """
-    return isinstance(json_term, dict) and "functor" in json_term and "args" in json_term
+    return (
+        isinstance(json_term, dict) and "functor" in json_term and "args" in json_term
+    )
 
 
 def is_prolog_list(json_term):
@@ -875,7 +918,9 @@ def is_prolog_variable(json_term):
     """
     True if json_term is Prolog JSON representing a Prolog variable.  See `swiplserver.prologserver` for documentation on the Prolog JSON format.
     """
-    return isinstance(json_term, str) and (json_term[0].isupper() or json_term[0] == "_")
+    return isinstance(json_term, str) and (
+        json_term[0].isupper() or json_term[0] == "_"
+    )
 
 
 def is_prolog_atom(json_term):
@@ -910,10 +955,12 @@ def quote_prolog_identifier(identifier: str):
         return identifier
     else:
         mustQuote = is_prolog_atom(identifier) and (
-                        len(identifier) == 0 or
-                        not identifier[0].isalpha() or
-                        # characters like _ are allowed without quoting
-                        not identifier.translate({ord(c): '' for c in '_'}).isalnum())
+            len(identifier) == 0
+            or not identifier[0].isalpha()
+            or
+            # characters like _ are allowed without quoting
+            not identifier.translate({ord(c): "" for c in "_"}).isalnum()
+        )
 
         if mustQuote:
             return f"'{identifier}'"
@@ -947,7 +994,7 @@ class _NonBlockingStreamReader:
                     _log.critical(f"Prolog: {line.decode().rstrip()}")
 
         self._stream = stream
-        self._thread = Thread(target = _print_output, args = (self._stream, ))
+        self._thread = Thread(target=_print_output, args=(self._stream,))
         self._thread.daemon = True
         self._thread.start()
 
@@ -955,7 +1002,7 @@ class _NonBlockingStreamReader:
 _log = logging.getLogger("swiplserver")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # This is not guaranteed to create a socket that is portable, but since
     # we are testing we are OK with it.
     socketPath = os.path.dirname(os.path.realpath(__file__))
