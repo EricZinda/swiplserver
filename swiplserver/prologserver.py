@@ -168,40 +168,35 @@ class PrologQueryTimeoutError(PrologError):
     """
     Raised when a Prolog query times out when calling `PrologThread.query()` or `PrologThread.query_async()` with a timeout.
     """
-    def __init__(self, exception_json):
-        super().__init__(exception_json)
+    pass
 
 
 class PrologConnectionFailedError(PrologError):
     """
     Raised when the connection used by a `PrologThread` fails. Indicates that the server will no longer respond.
     """
-    def __init__(self, exception_json):
-        super().__init__(exception_json)
+    pass
 
 
 class PrologNoQueryError(PrologError):
     """
     Raised by `PrologThread.cancel_query_async()` and `PrologThread.query_async_result()` if there is no query running and no results to retrieve.
     """
-    def __init__(self, exception_json):
-        super().__init__(exception_json)
+    pass
 
 
 class PrologQueryCancelledError(PrologError):
     """
     Raised by `PrologThread.query_async_result()` when the query has been cancelled.
     """
-    def __init__(self, exception_json):
-        super().__init__(exception_json)
+    pass
 
 
 class PrologResultNotAvailableError(PrologError):
     """
     Raised by `PrologThread.query_async_result()` when the next result to a query is not yet available.
     """
-    def __init__(self, exception_json):
-        super().__init__(exception_json)
+    pass
 
 
 class   PrologServer:
@@ -914,13 +909,11 @@ def quote_prolog_identifier(identifier: str):
     if not is_prolog_atom(identifier):
         return identifier
     else:
-        mustQuote = is_prolog_atom(identifier) and \
-                    (
+        mustQuote = is_prolog_atom(identifier) and (
                         len(identifier) == 0 or
                         not identifier[0].isalpha() or
                         # characters like _ are allowed without quoting
-                        not identifier.translate({ord(c): '' for c in '_'}).isalnum()
-                        )
+                        not identifier.translate({ord(c): '' for c in '_'}).isalnum())
 
         if mustQuote:
             return f"'{identifier}'"
