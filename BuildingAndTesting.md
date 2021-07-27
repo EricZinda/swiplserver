@@ -13,7 +13,15 @@ python test_prologserver.py
 # How to build for `pip install`
 ~~~
 python3 -m build
+~~~
+For testing:
+~~~
 python3 -m twine upload --repository testpypi dist/*
+~~~
+
+For release:
+~~~
+python3 -m twine upload dist/*
 ~~~
 
 # How to build the Python documentation
