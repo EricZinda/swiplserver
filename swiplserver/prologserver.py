@@ -759,17 +759,15 @@ class PrologThread:
                 return None
             elif jsonResult["args"][0] == "connection_failed":
                 self._prolog_server.connection_failed = True
-                raise PrologConnectionFailedError(jsonResult)
-            elif jsonResult["args"][0] == "time_limit_exceeded":
-                raise PrologQueryTimeoutError(jsonResult)
-            elif jsonResult["args"][0] == "no_query":
-                raise PrologNoQueryError(jsonResult)
-            elif jsonResult["args"][0] == "cancel_goal":
-                raise PrologQueryCancelledError(jsonResult)
-            elif jsonResult["args"][0] == "result_not_available":
-                raise PrologResultNotAvailableError(jsonResult)
-            else:
+            elif not isinstance(jsonResult["args"][0], str):
                 raise PrologError(jsonResult)
+
+            raise {"connection_failed": PrologConnectionFailedError(jsonResult),
+                   "time_limit_exceeded": PrologQueryTimeoutError(jsonResult),
+                   "no_query": PrologNoQueryError(jsonResult),
+                   "cancel_goal": PrologQueryCancelledError(jsonResult),
+                   "result_not_available": PrologResultNotAvailableError(jsonResult),
+                   }.get(jsonResult["args"][0], PrologError(jsonResult))
         else:
             if prolog_name(jsonResult) == "false":
                 return False
