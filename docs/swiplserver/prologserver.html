@@ -105,6 +105,7 @@ Sometimes an issue occurs deep in an application and it would be easier to set b
 <p><code>swiplserver</code> normally launches SWI Prolog and starts the <code>language_server/1</code> predicate within it so that it can connect and run queries. This predicate is defined in the <code>language_server.pl</code> file included in the <code>swiplserver</code> module. To debug your code using Prolog itself, you can do this manually and connect your application to it. A typical flow for standalone mode is:</p>
 <ol>
 <li>Launch SWI Prolog and call the <code>language_server/1</code> predicate defined in the <code>language_server.pl</code> file that is part of the module, specifying a port and password (documentation is <a href="https://blog.inductorsoftware.com/swiplserver/language_server/language_server.html">here</a>). Use the <code>tdebug/0</code> predicate to set all threads to debugging mode like this: <code>tdebug, language_server([port(4242), password(debugnow)])</code>.</li>
+<li>Optionally run the predicate <code>debug(language_server(_)).</code> in Prolog to turn on tracing for the language_server.</li>
 <li>Set the selected port and password when you call <code><a title="swiplserver.prologserver.PrologServer" href="#swiplserver.prologserver.PrologServer">PrologServer</a></code>.</li>
 <li>Launch the application and go through the steps to reproduce the issue.</li>
 </ol>
